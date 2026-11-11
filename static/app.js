@@ -238,7 +238,7 @@ function renderState(state) {
   badge.textContent = mode === "mock" ? "mock PayPal" : mode === "sandbox" ? "PayPal sandbox" : mode;
   badge.className = `badge ${mode}`;
   const modelBadge = $("model-badge");
-  modelBadge.textContent = state.model ? `${state.provider || ""} · ${state.model}` : state.provider || "no model";
+  modelBadge.textContent = state.provider ? `${state.provider} · ${state.model}` : (state.public_demo ? "no AI model (public demo)" : "no model key");
   modelBadge.className = "badge quiet provider";
   renderApprovals(state);
   renderFlagged(state);
