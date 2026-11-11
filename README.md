@@ -8,6 +8,14 @@ Built for the [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/). The
 
 An agent with PayPal access is only as safe as the text it reads. A vendor bill can carry a hidden instruction. A "small" subscription change can be split into steps that each pass an amount-only rule. A vendor's payout email can be swapped minutes before a big payout. A refund can land on an order that is already in a PayPal dispute, and pay the buyer twice. Telling the model to be careful is not a control.
 
+## Try it live
+
+Public demo: {{RENDER_URL}}
+
+The hosted demo runs with `DESK_PUBLIC_DEMO=1`. It never uses model keys or PayPal credentials, even if they are set on the host, so chat with the AI clerk is off there. It runs the scripted walkthrough for all four attacks through the same rules the live clerk uses, and you can use the kill switch, the plain-English rule editor, Apply, Why?, and the red-team suite. Each visitor gets a private desk that resets after 30 minutes idle, and requests are rate limited by IP. For the live Gemini clerk, run it locally (see Quick start).
+
+Deploy your own: `render.yaml` in this repo is a Render Blueprint for a free Python web service (`uvicorn desk.server:app --host 0.0.0.0 --port $PORT`, health check `/healthz`).
+
 ## One continuous clerk flow, four attacks
 
 The demo is one conversation with the clerk. Each beat uses a different PayPal payment type.
@@ -136,6 +144,7 @@ It creates and sends an invoice, creates an order and prints the buyer approve U
 | `PAYPAL_MODE` | `mock` or `sandbox` |
 | `DESK_AUDIT_KEY` | HMAC key for the audit chain (random per process if unset) |
 | `DESK_PRODUCT_NAME` | Display name override |
+| `DESK_PUBLIC_DEMO` | `1` for the hosted demo: ignores all keys, mock PayPal, per-visitor desks, binds `0.0.0.0:$PORT` |
 | `DESK_HOST`, `DESK_PORT` | Bind address and port |
 
 ## Project layout

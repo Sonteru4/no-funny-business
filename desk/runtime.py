@@ -110,9 +110,43 @@ class Runtime:
 
 _RUNTIME: Runtime | None = None
 
+# Public demo mode: one isolated desk per visitor, idle desks expire.
+import contextvars  # noqa: E402
+import threading  # noqa: E402
+import time  # noqa: E402
+from collections import OrderedDict  # noqa: E402
+
+VISITOR: contextvars.ContextVar[str | None] = contextvars.ContextVar("desk_visitor", default=None)
+_VISITORS: "OrderedDict[str, tuple[float, Runtime]]" = OrderedDict()
+_VISITORS_LOCK = threading.Lock()
+MAX_VISITORS = 200
+VISITOR_TTL_SECONDS = 30 * 60
+
+
+def _visitor_runtime(visitor: str, fresh: bool = False) -> Runtime:
+    now = time.monotonic()
+    with _VISITORS_LOCK:
+        for key in [k for k, (seen, _) in _VISITORS.items() if now - seen > VISITOR_TTL_SECONDS]:
+            _VISITORS.pop(key, None)
+        entry = _VISITORS.pop(visitor, None)
+        runtime = None if (fresh or entry is None) else entry[1]
+        if runtime is None:
+            runtime = Runtime(load_settings())
+        _VISITORS[visitor] = (now, runtime)
+        while len(_VISITORS) > MAX_VISITORS:
+            _VISITORS.popitem(last=False)
+        return runtime
+
+
+def visitor_count() -> int:
+    return len(_VISITORS)
+
 
 def get_runtime() -> Runtime:
     global _RUNTIME
+    visitor = VISITOR.get()
+    if visitor:
+        return _visitor_runtime(visitor)
     if _RUNTIME is None:
         _RUNTIME = Runtime()
     return _RUNTIME
@@ -120,6 +154,9 @@ def get_runtime() -> Runtime:
 
 def reset_runtime() -> Runtime:
     global _RUNTIME
+    visitor = VISITOR.get()
+    if visitor:
+        return _visitor_runtime(visitor, fresh=True)
     settings = _RUNTIME.settings if _RUNTIME else load_settings()
     _RUNTIME = Runtime(settings)
     return _RUNTIME

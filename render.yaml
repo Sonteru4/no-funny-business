@@ -1,0 +1,17 @@
+# Render Blueprint for the public demo. Free web service, mock PayPal, no model keys.
+# DESK_PUBLIC_DEMO=1 makes the app ignore any GEMINI/OPENAI/PAYPAL values, bind 0.0.0.0:$PORT,
+# give each visitor an isolated desk that expires after 30 minutes idle, and rate limit by IP.
+services:
+  - type: web
+    name: merchant-desk-demo
+    runtime: python
+    plan: free
+    autoDeploy: false
+    buildCommand: pip install -r requirements.txt && pip install paypal-agent-toolkit==1.11.0 --no-deps
+    startCommand: uvicorn desk.server:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /healthz
+    envVars:
+      - key: DESK_PUBLIC_DEMO
+        value: "1"
+      - key: PYTHON_VERSION
+        value: "3.11.9"

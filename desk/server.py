@@ -10,18 +10,54 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from desk.brand import PRODUCT_NAME, TAGLINE
-from desk.config import credentials_present
+import secrets
+
+from desk.config import credentials_present, public_demo_enabled
 from desk.integrity import explain
 from desk.ratelimit import LIMITER
 from desk.redact import DEFAULT_REDACTOR
 from desk.redteam import run_suite
-from desk.runtime import get_runtime, reset_runtime
+from desk.runtime import VISITOR, get_runtime, reset_runtime, visitor_count
 
 STATIC = Path(__file__).resolve().parent.parent / "static"
 
 app = FastAPI(title=PRODUCT_NAME, version="1.2.0")
 if STATIC.exists():
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
+
+VISITOR_COOKIE = "desk_visitor"
+PUBLIC_DEMO_LIMIT_PER_MIN = 120
+
+
+@app.middleware("http")
+async def public_demo_isolation(request: Request, call_next):
+    """In public demo mode, give every visitor their own desk and rate limit by IP."""
+    if not public_demo_enabled():
+        return await call_next(request)
+    from fastapi.responses import JSONResponse
+
+    path = request.url.path
+    if path.startswith("/api/"):
+        ip = request.client.host if request.client else "unknown"
+        result = LIMITER.check(f"public:{ip}", limit=PUBLIC_DEMO_LIMIT_PER_MIN)
+        if not result["ok"]:
+            return JSONResponse(
+                {"detail": f"Too many requests. Try again in {result['retry_after']} seconds."},
+                status_code=429,
+                headers={"Retry-After": str(result["retry_after"])},
+            )
+    visitor = request.cookies.get(VISITOR_COOKIE) or ""
+    new_cookie = not (16 <= len(visitor) <= 64 and visitor.replace("-", "").replace("_", "").isalnum())
+    if new_cookie:
+        visitor = secrets.token_urlsafe(18)
+    token = VISITOR.set(visitor)
+    try:
+        response = await call_next(request)
+    finally:
+        VISITOR.reset(token)
+    if new_cookie:
+        response.set_cookie(VISITOR_COOKIE, visitor, max_age=1800, httponly=True, samesite="lax", secure=request.url.scheme == "https")
+    return response
 
 
 class ChatRequest(BaseModel):
@@ -66,6 +102,7 @@ def _state_payload():
     payload["model"] = runtime.settings.llm_model
     payload["credentials_present"] = credentials_present()
     payload["policy"] = runtime.state.policy.to_dict()
+    payload["public_demo"] = bool(getattr(runtime.settings, "public_demo", False))
     payload["product_name"] = PRODUCT_NAME
     payload["tagline"] = TAGLINE
     return runtime.redactor.redact(payload)
@@ -77,6 +114,12 @@ def index():
     if not index_path.exists():
         raise HTTPException(status_code=404, detail="UI files are missing.")
     return FileResponse(index_path)
+
+
+@app.get("/healthz")
+def healthz():
+    """Liveness check for hosting. No secrets, no per-visitor state."""
+    return {"ok": True, "public_demo": public_demo_enabled(), "visitors": visitor_count() if public_demo_enabled() else None}
 
 
 @app.get("/api/health")
@@ -104,6 +147,12 @@ def state():
 def chat(body: ChatRequest, request: Request):
     _check_limit(request, "chat", limit=20)
     runtime = get_runtime()
+    if public_demo_enabled():
+        raise HTTPException(
+            status_code=403,
+            detail="Chat with the AI clerk is off in the public demo, so no model keys are used here. "
+            "The scripted walkthrough runs all four attacks through the same rules. Run the repo locally with a Gemini key for the live clerk.",
+        )
     try:
         agent = runtime.require_agent()
     except RuntimeError as exc:

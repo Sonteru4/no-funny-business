@@ -185,3 +185,6 @@ textarea { resize: none; background: transparent; color: var(--ink); border: 0; 
   .chat-col { min-height: 70vh; }
   .top { padding: 14px; flex-direction: column; gap: 10px; }
 }
+.info-banner { margin: 12px 28px 0; padding: 10px 14px; border: 1px solid #c4dbea; background: var(--accent-soft); color: var(--accent); border-radius: 10px; font-size: 13px; }
+.info-banner[hidden] { display: none; }
+.prompt-chip:disabled { opacity: 0.5; cursor: not-allowed; }

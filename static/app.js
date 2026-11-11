@@ -68,6 +68,13 @@ function friendlyStatus(status) {
   return { allowed: "done", blocked: "stopped", needs_approval: "held for you" }[status] || status || "ran";
 }
 
+function showInfo(text) {
+  const el = document.getElementById("info-banner");
+  if (!el) return;
+  el.hidden = !text;
+  el.textContent = text || "";
+}
+
 function showBanner(text) {
   banner.hidden = !text;
   banner.textContent = text || "";
@@ -503,7 +510,17 @@ for (const item of prompts) {
   promptBox.append(btn);
 }
 
-refresh().then(() => {
+refresh().then(async () => {
+  const st = await (await fetch("/api/state")).json();
+  if (st.public_demo) {
+    $("message").disabled = true;
+    $("send-btn").disabled = true;
+    $("message").placeholder = "Chat is off in the public demo. Run it locally with a Gemini key for the live clerk.";
+    for (const chip of document.querySelectorAll(".prompt-chip")) chip.disabled = true;
+    showInfo("Public demo: no AI model and no PayPal account are connected here. Your desk is private to you and resets after 30 minutes idle. The scripted walkthrough below runs all four attacks through the same rules the live clerk uses.");
+    if (!(st.audit || []).length) $("walkthrough-btn").click();
+    return;
+  }
   addMessage(
     "assistant",
     `Hi, I am the ${productName} clerk. I can pay vendors, manage subscriptions, and handle refunds and disputes. Every money move goes through house rules written in code, so nobody can talk me past them, not even a note hidden in an invoice.`

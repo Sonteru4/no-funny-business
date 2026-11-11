@@ -37,6 +37,7 @@ class Settings:
     gemini_model: str = "gemini-flash-latest"
     llm_provider_override: str | None = None
     audit_signing_key: str | None = None
+    public_demo: bool = False
 
     @property
     def has_paypal_credentials(self) -> bool:
@@ -95,7 +96,29 @@ class Settings:
         ]
 
 
+def public_demo_enabled() -> bool:
+    return (os.environ.get("DESK_PUBLIC_DEMO") or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def public_demo_settings() -> Settings:
+    """Hosted demo: never read model keys or PayPal credentials, even if they are set."""
+    return Settings(
+        openai_api_key=None,
+        openai_model="gpt-4o-mini",
+        paypal_client_id=None,
+        paypal_client_secret=None,
+        paypal_mode_override="mock",
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT") or "10000"),
+        gemini_api_key=None,
+        audit_signing_key=None,
+        public_demo=True,
+    )
+
+
 def load_settings() -> Settings:
+    if public_demo_enabled():
+        return public_demo_settings()
     override = (_first_env("PAYPAL_MODE") or "").lower() or None
     if override not in {None, "mock", "sandbox"}:
         override = None
@@ -128,6 +151,12 @@ def mock_paypal_settings(settings: Settings | None = None) -> Settings:
 
 
 def credentials_present() -> dict[str, bool]:
+    if public_demo_enabled():
+        return {k: False for k in ("GEMINI_API_KEY", "OPENAI_API_KEY", "PAYPAL_CLIENT_ID", "PAYPAL_CLIENT_SECRET", "DESK_AUDIT_KEY")}
+    return _credentials_present_env()
+
+
+def _credentials_present_env() -> dict[str, bool]:
     """Report which secrets exist, without revealing values."""
     return {
         "GEMINI_API_KEY": _secret_is_set("GEMINI_API_KEY", "GOOGLE_API_KEY"),
