@@ -1,8 +1,8 @@
-from tillguard.guard import GuardedPaypal
-from tillguard.integrity import explain, verify_chain
-from tillguard.paypal.mock import MockPayPalBackend
-from tillguard.policy import PolicyPack
-from tillguard.store import AppState, seed_demo_data
+from desk.guard import GuardedPaypal
+from desk.integrity import explain, verify_chain
+from desk.paypal.mock import MockPayPalBackend
+from desk.policy import PolicyPack
+from desk.store import AppState, seed_demo_data
 
 
 def _desk():

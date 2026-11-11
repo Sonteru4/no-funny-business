@@ -19,6 +19,7 @@ _PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("prompt_exfil", re.compile(r"\b(reveal|show|print|dump)\b.{0,30}\b(system|hidden|secret)\s+prompt\b", re.I)),
     ("role_hijack", re.compile(r"(?:system\s*:|\[inst\]|<\|system\|>|instruction to (?:the )?agent|hidden instruction)", re.I)),
     ("role_hijack", re.compile(r"\bdeveloper message\b.{0,20}\b(override|ignore)\b", re.I)),
+    ("role_hijack", re.compile(r"\b(?:note|message|instructions?)\s+(?:to|for)\s+(?:the\s+)?(?:ai|assistant|agent|clerk|bot)\b", re.I)),
 ]
 
 

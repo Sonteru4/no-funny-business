@@ -7,7 +7,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any
 
-from tillguard.amounts import extract_amount, money, money_str
+from desk.amounts import extract_amount, money, money_str
 
 
 class DecisionKind(str, Enum):
@@ -23,6 +23,9 @@ MONEY_TOOLS = {
     "pay_order": "capture",
     "create_refund": "refund",
     "record_refund_for_invoice": "refund",
+    "create_payout": "payout",
+    "update_subscription": "subscription",
+    "update_vendor_payee": "payee",
 }
 
 READ_ONLY_TOOLS = {
@@ -32,10 +35,16 @@ READ_ONLY_TOOLS = {
     "send_invoice",
     "list_policy",
     "list_pending_approvals",
+    "list_vendors",
+    "get_vendor",
+    "get_subscription",
+    "list_subscriptions",
+    "get_dispute",
+    "list_disputes",
 }
 
 # Least-privilege scopes. Unknown tools are denied in the interceptor.
-DEFAULT_SCOPES = ("invoices", "orders", "refunds", "policy")
+DEFAULT_SCOPES = ("invoices", "orders", "refunds", "payouts", "subscriptions", "vendors", "disputes", "policy")
 TOOL_SCOPES = {
     "create_order": "orders",
     "get_order": "orders",
@@ -48,6 +57,15 @@ TOOL_SCOPES = {
     "record_refund_for_invoice": "refunds",
     "list_policy": "policy",
     "list_pending_approvals": "policy",
+    "create_payout": "payouts",
+    "list_vendors": "vendors",
+    "get_vendor": "vendors",
+    "update_vendor_payee": "vendors",
+    "get_subscription": "subscriptions",
+    "list_subscriptions": "subscriptions",
+    "update_subscription": "subscriptions",
+    "get_dispute": "disputes",
+    "list_disputes": "disputes",
 }
 KNOWN_TOOLS = set(TOOL_SCOPES)
 
@@ -62,6 +80,18 @@ class PolicyPack:
     daily_refund_cap: Decimal = Decimal("200.00")
     sandbox_only: bool = True
     enabled_scopes: tuple[str, ...] = DEFAULT_SCOPES
+    # Payouts (PayPal Payouts API shape). Verified payees are always required.
+    max_payout_amount: Decimal = Decimal("2000.00")
+    payout_approval_threshold: Decimal = Decimal("500.00")
+    payee_change_cooldown_hours: int = 24
+    payout_velocity_per_hour: int = 3
+    # Subscriptions (PayPal Subscriptions API shape). The starter rule is
+    # intentionally amount-only so the demo can show the editor tightening it.
+    subscription_max_change_per_update: Decimal = Decimal("25.00")
+    subscription_daily_increase_cap: Decimal | None = None
+    subscription_payee_change_requires_approval: bool = False
+    # Refunds on disputed or duplicate captures are always blocked.
+    duplicate_refund_window_hours: int = 24
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -73,6 +103,14 @@ class PolicyPack:
             "daily_refund_cap": money_str(self.daily_refund_cap),
             "sandbox_only": self.sandbox_only,
             "enabled_scopes": list(self.enabled_scopes),
+            "max_payout_amount": money_str(self.max_payout_amount),
+            "payout_approval_threshold": money_str(self.payout_approval_threshold),
+            "payee_change_cooldown_hours": self.payee_change_cooldown_hours,
+            "payout_velocity_per_hour": self.payout_velocity_per_hour,
+            "subscription_max_change_per_update": money_str(self.subscription_max_change_per_update),
+            "subscription_daily_increase_cap": money_str(self.subscription_daily_increase_cap) if self.subscription_daily_increase_cap is not None else None,
+            "subscription_payee_change_requires_approval": self.subscription_payee_change_requires_approval,
+            "duplicate_refund_window_hours": self.duplicate_refund_window_hours,
             "notes": {
                 "orders": f"Orders at or below {money_str(self.max_order_amount)} {self.currency} may be created automatically.",
                 "invoices": f"Invoices at or below {money_str(self.max_invoice_amount)} {self.currency} may be created automatically.",

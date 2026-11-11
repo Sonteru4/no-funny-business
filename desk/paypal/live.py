@@ -10,9 +10,9 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from tillguard.amounts import extract_amount, money, money_str
-from tillguard.config import Settings
-from tillguard.store import AppState
+from desk.amounts import extract_amount, money, money_str
+from desk.config import Settings
+from desk.store import AppState
 
 
 def _as_dict(result: Any) -> dict[str, Any]:

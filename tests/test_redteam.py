@@ -1,4 +1,4 @@
-from tillguard.redteam import run_suite
+from desk.redteam import run_suite
 
 
 def test_red_team_suite_blocks_every_attack_and_allows_benign_cases():

@@ -1,9 +1,9 @@
-from tillguard.config import Settings
-from tillguard.guard import GuardedPaypal
-from tillguard.paypal.mock import MockPayPalBackend
-from tillguard.policy import PolicyPack
-from tillguard.runtime import Runtime
-from tillguard.store import AppState, seed_demo_data
+from desk.config import Settings
+from desk.guard import GuardedPaypal
+from desk.paypal.mock import MockPayPalBackend
+from desk.policy import PolicyPack
+from desk.runtime import Runtime
+from desk.store import AppState, seed_demo_data
 
 
 def _desk():

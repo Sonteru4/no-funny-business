@@ -1,4 +1,4 @@
-from tillguard.config import Settings
+from desk.config import Settings
 
 
 def _base(**kwargs):

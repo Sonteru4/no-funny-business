@@ -6,7 +6,7 @@ and a no-key preview of the desk. It is not a substitute for the AI demo.
 
 from __future__ import annotations
 
-from tillguard.runtime import Runtime
+from desk.runtime import Runtime
 
 
 def run_walkthrough(runtime: Runtime) -> dict:

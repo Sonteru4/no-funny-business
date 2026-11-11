@@ -1,7 +1,7 @@
 """Agent-in-the-loop evals. Policy unit tests stay in tests/ and do not need an LLM.
 
 Run:
-    python -m tillguard.evals
+    python -m desk.evals
 """
 
 from __future__ import annotations
@@ -9,8 +9,8 @@ from __future__ import annotations
 import sys
 from typing import Any, Callable
 
-from tillguard.config import mock_paypal_settings
-from tillguard.runtime import Runtime
+from desk.config import mock_paypal_settings
+from desk.runtime import Runtime
 
 
 CaseFn = Callable[[Runtime], tuple[bool, str]]

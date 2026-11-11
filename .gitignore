@@ -15,3 +15,7 @@ build/
 data/
 *.log
 .cache/
+
+*.db
+*.sqlite
+*.sqlite3

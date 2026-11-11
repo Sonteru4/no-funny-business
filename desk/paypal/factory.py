@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from tillguard.config import Settings
-from tillguard.paypal.live import LivePayPalBackend
-from tillguard.paypal.mock import MockPayPalBackend
-from tillguard.store import AppState
+from desk.config import Settings
+from desk.paypal.live import LivePayPalBackend
+from desk.paypal.mock import MockPayPalBackend
+from desk.store import AppState
 
 
 def build_backend(settings: Settings, state: AppState):

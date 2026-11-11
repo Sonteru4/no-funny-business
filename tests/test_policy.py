@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from tillguard.policy import DecisionKind, PolicyContext, PolicyPack, evaluate
+from desk.policy import DecisionKind, PolicyContext, PolicyPack, evaluate
 
 
 def pack() -> PolicyPack:

@@ -1,4 +1,4 @@
-"""FastAPI app for the TillGuard merchant desk."""
+"""FastAPI app for the merchant desk."""
 
 from __future__ import annotations
 
@@ -9,16 +9,17 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from tillguard.config import credentials_present
-from tillguard.integrity import explain
-from tillguard.ratelimit import LIMITER
-from tillguard.redact import DEFAULT_REDACTOR
-from tillguard.redteam import run_suite
-from tillguard.runtime import get_runtime, reset_runtime
+from desk.brand import PRODUCT_NAME, TAGLINE
+from desk.config import credentials_present
+from desk.integrity import explain
+from desk.ratelimit import LIMITER
+from desk.redact import DEFAULT_REDACTOR
+from desk.redteam import run_suite
+from desk.runtime import get_runtime, reset_runtime
 
 STATIC = Path(__file__).resolve().parent.parent / "static"
 
-app = FastAPI(title="TillGuard", version="1.1.0")
+app = FastAPI(title=PRODUCT_NAME, version="1.2.0")
 if STATIC.exists():
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
@@ -65,6 +66,8 @@ def _state_payload():
     payload["model"] = runtime.settings.llm_model
     payload["credentials_present"] = credentials_present()
     payload["policy"] = runtime.state.policy.to_dict()
+    payload["product_name"] = PRODUCT_NAME
+    payload["tagline"] = TAGLINE
     return runtime.redactor.redact(payload)
 
 
@@ -145,7 +148,7 @@ def deny(approval_id: str, request: Request):
 @app.post("/api/walkthrough")
 def walkthrough():
     """Populate the desk with a policy walkthrough that does not call the LLM."""
-    from tillguard.walkthrough import run_walkthrough
+    from desk.walkthrough import run_walkthrough
 
     runtime = reset_runtime()
     return runtime.redactor.redact(run_walkthrough(runtime))
@@ -210,12 +213,24 @@ def redteam(request: Request):
     return {"report": report, "state": _state_payload()}
 
 
+class KillSwitchRequest(BaseModel):
+    frozen: bool
+
+
+@app.post("/api/killswitch")
+def killswitch(body: KillSwitchRequest, request: Request):
+    _check_limit(request, "killswitch", limit=30)
+    runtime = get_runtime()
+    result = runtime.guarded.set_frozen(body.frozen)
+    return {"result": result, "state": _state_payload()}
+
+
 def main() -> None:
     import uvicorn
 
     runtime = get_runtime()
     uvicorn.run(
-        "tillguard.server:app",
+        "desk.server:app",
         host=runtime.settings.host,
         port=runtime.settings.port,
         reload=False,

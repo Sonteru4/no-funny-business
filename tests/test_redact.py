@@ -1,8 +1,8 @@
-from tillguard.guard import GuardedPaypal
-from tillguard.paypal.mock import MockPayPalBackend
-from tillguard.policy import PolicyPack
-from tillguard.redact import Redactor
-from tillguard.store import AppState, seed_demo_data
+from desk.guard import GuardedPaypal
+from desk.paypal.mock import MockPayPalBackend
+from desk.policy import PolicyPack
+from desk.redact import Redactor
+from desk.store import AppState, seed_demo_data
 
 
 def test_redactor_scrubs_known_secret_and_key_patterns():

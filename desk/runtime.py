@@ -1,17 +1,17 @@
-"""Process-wide TillGuard runtime (state, backend, agent)."""
+"""Process-wide desk runtime (state, backend, agent)."""
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from tillguard.agent import TillGuardAgent
-from tillguard.config import Settings, load_settings
-from tillguard.guard import GuardedPaypal
-from tillguard.paypal.factory import build_backend
-from tillguard.policy import PolicyPack
-from tillguard.policy_compile import apply_candidate, compile_text, compile_with_llm
-from tillguard.redact import Redactor
-from tillguard.store import AppState, seed_demo_data
+from desk.agent import DeskAgent
+from desk.config import Settings, load_settings
+from desk.guard import GuardedPaypal
+from desk.paypal.factory import build_backend
+from desk.policy import PolicyPack
+from desk.policy_compile import apply_candidate, compile_text, compile_with_llm
+from desk.redact import Redactor
+from desk.store import AppState, seed_demo_data, seed_extended_demo_data
 
 
 class Runtime:
@@ -24,13 +24,15 @@ class Runtime:
             self.state.signing_key = self.settings.audit_signing_key
         if self.settings.mode == "mock":
             seed_demo_data(self.state)
+        else:
+            seed_extended_demo_data(self.state, local_records_only=True)
         self.backend = build_backend(self.settings, self.state)
         self.guarded = GuardedPaypal(self.backend, self.state, redactor=self.redactor)
-        self.agent: TillGuardAgent | None = None
+        self.agent: DeskAgent | None = None
         if self.settings.llm_ready:
-            self.agent = TillGuardAgent(self.settings, self.guarded)
+            self.agent = DeskAgent(self.settings, self.guarded)
 
-    def require_agent(self) -> TillGuardAgent:
+    def require_agent(self) -> DeskAgent:
         if self.agent is None:
             raise RuntimeError(
                 "No language model key is set. Add GEMINI_API_KEY (preferred) or "
@@ -51,6 +53,8 @@ class Runtime:
             return {"ok": False, "error": f"Approval {approval_id} is {approval.status}."}
         approval.status = "approved"
         approval.decided_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        if self.state.frozen:
+            return {"ok": False, "error": "The kill switch is on. Turn it off before approving money moves."}
         return self.guarded.execute_approved(approval_id)
 
     def deny(self, approval_id: str) -> dict:
@@ -62,6 +66,12 @@ class Runtime:
         approval.status = "denied"
         approval.decided_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         return {"ok": True, "approval": approval.to_dict()}
+
+    def propose_policy_deterministic(self, text: str) -> dict:
+        result = compile_text(text, self.state.policy)
+        if result.get("ok"):
+            self.state.pending_policy = result
+        return result
 
     def propose_policy(self, text: str) -> dict:
         def llm_json(prompt: str) -> dict:

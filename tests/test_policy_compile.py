@@ -1,7 +1,7 @@
-from tillguard.policy import PolicyPack
-from tillguard.policy_compile import apply_candidate, compile_text
-from tillguard.runtime import Runtime
-from tillguard.config import Settings
+from desk.policy import PolicyPack
+from desk.policy_compile import apply_candidate, compile_text
+from desk.runtime import Runtime
+from desk.config import Settings
 
 
 def test_compiles_common_english_into_a_diff():

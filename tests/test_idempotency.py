@@ -1,7 +1,7 @@
-from tillguard.guard import GuardedPaypal
-from tillguard.paypal.mock import MockPayPalBackend
-from tillguard.policy import PolicyPack
-from tillguard.store import AppState, seed_demo_data
+from desk.guard import GuardedPaypal
+from desk.paypal.mock import MockPayPalBackend
+from desk.policy import PolicyPack
+from desk.store import AppState, seed_demo_data
 
 
 def test_same_idempotency_key_does_not_refund_twice():

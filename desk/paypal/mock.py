@@ -5,9 +5,9 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from tillguard.amounts import extract_amount, money, money_str
-from tillguard.paypal import ids
-from tillguard.store import AppState
+from desk.amounts import extract_amount, money, money_str
+from desk.paypal import ids
+from desk.store import PLAN_CATALOG, AppState
 
 
 def _now_date() -> str:
@@ -186,6 +186,7 @@ class MockPayPalBackend:
             "amount": money_str(amount),
             "currency": params.get("currency") or capture.get("currency") or "USD",
             "date": _now_date(),
+            "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "reason": params.get("reason"),
             "source": "mock",
         }
@@ -240,3 +241,85 @@ class MockPayPalBackend:
     def _handle_list_pending_approvals(self, params: dict[str, Any]) -> dict[str, Any]:
         pending = [item.to_dict() for item in self.state.approvals if item.status == "pending"]
         return {"ok": True, "count": len(pending), "approvals": pending}
+
+    # --- Payouts (shape of POST /v1/payments/payouts) ---
+    def _handle_create_payout(self, params: dict[str, Any]) -> dict[str, Any]:
+        batch_id = f"PAYOUTBATCH{len(self.state.payouts) + 1:06d}"
+        amount = money_str(params.get("amount"))
+        payout = {
+            "id": batch_id,
+            "batch_status": "SUCCESS",
+            "recipient_email": params.get("recipient_email"),
+            "amount": amount,
+            "currency": params.get("currency") or "USD",
+            "note": params.get("note"),
+            "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "source": "mock",
+        }
+        self.state.payouts[batch_id] = payout
+        return {
+            "ok": True,
+            "batch_header": {"payout_batch_id": batch_id, "batch_status": "SUCCESS"},
+            "items": [{"receiver": payout["recipient_email"], "amount": {"value": amount, "currency": payout["currency"]}}],
+            "message": "Mock payout batch created. Nothing was sent to real PayPal.",
+        }
+
+    # --- Vendors ---
+    def _handle_list_vendors(self, params: dict[str, Any]) -> dict[str, Any]:
+        return {"ok": True, "vendors": list(self.state.vendors.values())}
+
+    def _handle_get_vendor(self, params: dict[str, Any]) -> dict[str, Any]:
+        vendor = self.state.vendors.get(params.get("vendor_id") or "")
+        if not vendor:
+            return {"ok": False, "error": f"Vendor {params.get('vendor_id')} was not found."}
+        return {"ok": True, "vendor": vendor}
+
+    def _handle_update_vendor_payee(self, params: dict[str, Any]) -> dict[str, Any]:
+        vendor = self.state.vendors.get(params.get("vendor_id") or "")
+        if not vendor:
+            return {"ok": False, "error": f"Vendor {params.get('vendor_id')} was not found."}
+        vendor["previous_paypal_email"] = vendor.get("paypal_email")
+        vendor["paypal_email"] = params.get("paypal_email")
+        vendor["payee_changed_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        return {"ok": True, "vendor": vendor, "message": "Vendor payee updated in mock mode."}
+
+    # --- Subscriptions (shape of GET/PATCH /v1/billing/subscriptions/{id}) ---
+    def _handle_list_subscriptions(self, params: dict[str, Any]) -> dict[str, Any]:
+        return {"ok": True, "subscriptions": list(self.state.subscriptions.values())}
+
+    def _handle_get_subscription(self, params: dict[str, Any]) -> dict[str, Any]:
+        sub = self.state.subscriptions.get(params.get("subscription_id") or "")
+        if not sub:
+            return {"ok": False, "error": f"Subscription {params.get('subscription_id')} was not found."}
+        return {"ok": True, "subscription": sub}
+
+    def _handle_update_subscription(self, params: dict[str, Any]) -> dict[str, Any]:
+        sub = self.state.subscriptions.get(params.get("subscription_id") or "")
+        if not sub:
+            return {"ok": False, "error": f"Subscription {params.get('subscription_id')} was not found."}
+        before = money(sub["price"])
+        if params.get("plan_id") and params["plan_id"] in PLAN_CATALOG:
+            sub["plan_id"] = params["plan_id"]
+            sub["plan_name"] = PLAN_CATALOG[params["plan_id"]]["name"]
+            sub["price"] = PLAN_CATALOG[params["plan_id"]]["price"]
+        if params.get("price") not in (None, ""):
+            sub["price"] = money_str(params["price"])
+        if params.get("payee_email"):
+            sub["payee_email"] = params["payee_email"]
+        delta = money(sub["price"]) - before
+        self.state.subscription_changes.append({
+            "subscription_id": sub["id"],
+            "delta": money_str(delta),
+            "ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        })
+        return {"ok": True, "subscription": sub, "message": "Mock subscription revised."}
+
+    # --- Disputes (shape of GET /v1/customer/disputes) ---
+    def _handle_list_disputes(self, params: dict[str, Any]) -> dict[str, Any]:
+        return {"ok": True, "disputes": list(self.state.disputes.values())}
+
+    def _handle_get_dispute(self, params: dict[str, Any]) -> dict[str, Any]:
+        dispute = self.state.disputes.get(params.get("dispute_id") or "")
+        if not dispute:
+            return {"ok": False, "error": f"Dispute {params.get('dispute_id')} was not found."}
+        return {"ok": True, "dispute": dispute}

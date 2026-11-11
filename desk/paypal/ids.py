@@ -16,7 +16,7 @@ _ALPHANUM = string.ascii_uppercase + string.digits
 
 def next_order_id() -> str:
     n = next(_ORDER_COUNTER)
-    return f"TGORDER{n:011d}"  # 7 + 11 = 18 chars
+    return f"RFORDER{n:011d}"  # 7 + 11 = 18 chars
 
 
 def next_capture_id() -> str:

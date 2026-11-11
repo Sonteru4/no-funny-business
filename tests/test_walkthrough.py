@@ -1,6 +1,6 @@
-from tillguard.config import Settings
-from tillguard.runtime import Runtime
-from tillguard.walkthrough import run_walkthrough
+from desk.config import Settings
+from desk.runtime import Runtime
+from desk.walkthrough import run_walkthrough
 
 
 def test_offline_walkthrough_covers_allow_hold_and_block():

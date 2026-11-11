@@ -1,8 +1,8 @@
-from tillguard.guard import GuardedPaypal
-from tillguard.paypal.mock import MockPayPalBackend
-from tillguard.policy import PolicyPack
-from tillguard.ratelimit import RateLimiter
-from tillguard.store import AppState, seed_demo_data
+from desk.guard import GuardedPaypal
+from desk.paypal.mock import MockPayPalBackend
+from desk.policy import PolicyPack
+from desk.ratelimit import RateLimiter
+from desk.store import AppState, seed_demo_data
 
 
 def test_rate_limiter_blocks_after_limit():
@@ -18,7 +18,7 @@ def test_unknown_tool_is_blocked():
     state = AppState(mode="mock", policy=PolicyPack())
     seed_demo_data(state)
     guard = GuardedPaypal(MockPayPalBackend(state), state)
-    result = guard.invoke("create_payout", {"amount": 10})
+    result = guard.invoke("create_vault_token", {"amount": 10})
     assert result["status"] == "blocked"
     assert result["decision"]["policy_rule"] == "unknown_tool"
 

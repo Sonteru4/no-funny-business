@@ -7,7 +7,7 @@ import hmac
 import json
 from typing import Any, Iterable
 
-GENESIS = hashlib.sha256(b"tillguard-audit-v1").hexdigest()
+GENESIS = hashlib.sha256(b"desk-audit-v1").hexdigest()
 
 
 def canonical_json(value: Any) -> str:

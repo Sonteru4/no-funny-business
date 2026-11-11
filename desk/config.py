@@ -99,7 +99,7 @@ def load_settings() -> Settings:
     override = (_first_env("PAYPAL_MODE") or "").lower() or None
     if override not in {None, "mock", "sandbox"}:
         override = None
-    llm_override = (_first_env("TILLGUARD_LLM") or "").lower() or None
+    llm_override = (_first_env("DESK_LLM", "TILLGUARD_LLM") or "").lower() or None
     if llm_override not in {None, "gemini", "openai"}:
         llm_override = None
     return Settings(
@@ -108,12 +108,12 @@ def load_settings() -> Settings:
         paypal_client_id=_first_env("PAYPAL_CLIENT_ID"),
         paypal_client_secret=_first_env("PAYPAL_CLIENT_SECRET", "PAYPAL_SECRET"),
         paypal_mode_override=override,
-        host=_first_env("TILLGUARD_HOST", default="127.0.0.1") or "127.0.0.1",
-        port=int(_first_env("TILLGUARD_PORT", default="8000") or "8000"),
+        host=_first_env("DESK_HOST", "TILLGUARD_HOST", default="127.0.0.1") or "127.0.0.1",
+        port=int(_first_env("DESK_PORT", "TILLGUARD_PORT", default="8000") or "8000"),
         gemini_api_key=_first_env("GEMINI_API_KEY", "GOOGLE_API_KEY"),
         gemini_model=_first_env("GEMINI_MODEL", default="gemini-flash-latest") or "gemini-flash-latest",
         llm_provider_override=llm_override,
-        audit_signing_key=_first_env("TILLGUARD_AUDIT_KEY"),
+        audit_signing_key=_first_env("DESK_AUDIT_KEY", "TILLGUARD_AUDIT_KEY"),
     )
 
 
@@ -134,5 +134,5 @@ def credentials_present() -> dict[str, bool]:
         "OPENAI_API_KEY": _secret_is_set("OPENAI_API_KEY"),
         "PAYPAL_CLIENT_ID": _secret_is_set("PAYPAL_CLIENT_ID"),
         "PAYPAL_CLIENT_SECRET": _secret_is_set("PAYPAL_CLIENT_SECRET", "PAYPAL_SECRET"),
-        "TILLGUARD_AUDIT_KEY": _secret_is_set("TILLGUARD_AUDIT_KEY"),
+        "DESK_AUDIT_KEY": _secret_is_set("DESK_AUDIT_KEY", "TILLGUARD_AUDIT_KEY"),
     }

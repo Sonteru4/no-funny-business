@@ -9,7 +9,7 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "list_policy",
-            "description": "Show the merchant's current TillGuard policy limits and approval rules.",
+            "description": "Show the merchant's current desk policy limits and approval rules.",
             "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
         },
     },
@@ -212,4 +212,61 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
             },
         },
     },
+]
+
+
+def _fn(name: str, description: str, properties: dict[str, Any] | None = None, required: list[str] | None = None) -> dict[str, Any]:
+    return {
+        "type": "function",
+        "function": {
+            "name": name,
+            "description": description,
+            "parameters": {
+                "type": "object",
+                "properties": properties or {},
+                "required": required or [],
+                "additionalProperties": False,
+            },
+        },
+    }
+
+
+TOOL_SCHEMAS += [
+    _fn(
+        "create_payout",
+        "Send money to a vendor with the PayPal Payouts API. Only verified vendor payees are allowed, and large "
+        "payouts or payouts right after a payee change wait for a human.",
+        {
+            "recipient_email": {"type": "string", "description": "PayPal email of the payee."},
+            "amount": {"type": "number"},
+            "currency": {"type": "string"},
+            "note": {"type": "string", "description": "Short note for the payee."},
+            "invoice_id": {"type": "string", "description": "Vendor bill this payout settles, if any."},
+        },
+        ["recipient_email", "amount"],
+    ),
+    _fn("list_vendors", "List vendors and their verified PayPal payout emails."),
+    _fn("get_vendor", "Look up one vendor by id.", {"vendor_id": {"type": "string"}}, ["vendor_id"]),
+    _fn(
+        "update_vendor_payee",
+        "Change the PayPal email a vendor is paid at. This always needs human approval.",
+        {"vendor_id": {"type": "string"}, "paypal_email": {"type": "string"}},
+        ["vendor_id", "paypal_email"],
+    ),
+    _fn("list_subscriptions", "List customer subscriptions (PayPal Subscriptions API)."),
+    _fn("get_subscription", "Look up one subscription by id.", {"subscription_id": {"type": "string"}}, ["subscription_id"]),
+    _fn(
+        "update_subscription",
+        "Revise a subscription: change its price, move it to another plan (P-BASIC, P-PRO, P-TEAM, P-ENTERPRISE), "
+        "or change the payee that receives its payments.",
+        {
+            "subscription_id": {"type": "string"},
+            "price": {"type": "number"},
+            "plan_id": {"type": "string"},
+            "payee_email": {"type": "string"},
+        },
+        ["subscription_id"],
+    ),
+    _fn("list_disputes", "List open and closed PayPal disputes."),
+    _fn("get_dispute", "Look up one PayPal dispute by id.", {"dispute_id": {"type": "string"}}, ["dispute_id"]),
 ]
