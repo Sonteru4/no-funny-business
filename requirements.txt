@@ -1,0 +1,13 @@
+openai>=1.50.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+python-dotenv>=1.0.1
+pydantic>=2.10
+httpx>=0.26.0
+requests>=2.31.0
+pytest>=8.0
+# Official PayPal Agent Toolkit. Install without its pinned
+# LangChain / CrewAI / openai-agents extras:
+#   pip install paypal-agent-toolkit==1.11.0 --no-deps
+# The app still runs if this import is unavailable; live sandbox
+# then uses a thin PayPal REST client instead.
