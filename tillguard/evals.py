@@ -9,7 +9,7 @@ from __future__ import annotations
 import sys
 from typing import Any, Callable
 
-from tillguard.config import load_settings
+from tillguard.config import mock_paypal_settings
 from tillguard.runtime import Runtime
 
 
@@ -104,21 +104,12 @@ CASES: list[tuple[str, CaseFn]] = [
 
 
 def run() -> int:
-    settings = load_settings()
-    settings = type(settings)(
-        openai_api_key=settings.openai_api_key,
-        openai_model=settings.openai_model,
-        paypal_client_id=None,
-        paypal_client_secret=None,
-        paypal_mode_override="mock",
-        host=settings.host,
-        port=settings.port,
-    )
-    if not settings.openai_api_key:
-        print("OPENAI_API_KEY is not set. Policy unit tests can still run via: pytest tests/")
+    settings = mock_paypal_settings()
+    if not settings.llm_ready:
+        print("No language model key is set. Policy unit tests can still run via: pytest tests/")
         return 2
 
-    print(f"TillGuard evals  model={settings.openai_model}  mode=mock")
+    print(f"TillGuard evals  provider={settings.llm_provider}  model={settings.llm_model}  mode=mock")
     passed = 0
     failed = 0
     # Fresh runtime per case so seed data and daily caps stay isolated.

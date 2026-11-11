@@ -34,6 +34,23 @@ READ_ONLY_TOOLS = {
     "list_pending_approvals",
 }
 
+# Least-privilege scopes. Unknown tools are denied in the interceptor.
+DEFAULT_SCOPES = ("invoices", "orders", "refunds", "policy")
+TOOL_SCOPES = {
+    "create_order": "orders",
+    "get_order": "orders",
+    "pay_order": "orders",
+    "create_invoice": "invoices",
+    "list_invoices": "invoices",
+    "get_invoice": "invoices",
+    "send_invoice": "invoices",
+    "create_refund": "refunds",
+    "record_refund_for_invoice": "refunds",
+    "list_policy": "policy",
+    "list_pending_approvals": "policy",
+}
+KNOWN_TOOLS = set(TOOL_SCOPES)
+
 
 @dataclass
 class PolicyPack:
@@ -44,6 +61,7 @@ class PolicyPack:
     refund_auto_approve_limit: Decimal = Decimal("25.00")
     daily_refund_cap: Decimal = Decimal("200.00")
     sandbox_only: bool = True
+    enabled_scopes: tuple[str, ...] = DEFAULT_SCOPES
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -54,6 +72,7 @@ class PolicyPack:
             "refund_auto_approve_limit": money_str(self.refund_auto_approve_limit),
             "daily_refund_cap": money_str(self.daily_refund_cap),
             "sandbox_only": self.sandbox_only,
+            "enabled_scopes": list(self.enabled_scopes),
             "notes": {
                 "orders": f"Orders at or below {money_str(self.max_order_amount)} {self.currency} may be created automatically.",
                 "invoices": f"Invoices at or below {money_str(self.max_invoice_amount)} {self.currency} may be created automatically.",

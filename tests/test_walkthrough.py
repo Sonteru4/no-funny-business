@@ -21,6 +21,7 @@ def test_offline_walkthrough_covers_allow_hold_and_block():
     assert statuses["Auto-approve a $10 refund on the seed capture"] == "allowed"
     assert statuses["Hold a $30 refund for a human"] == "needs_approval"
     assert statuses["Block a $9,999 refund that ignores policy"] == "blocked"
+    assert statuses["Block an invoice whose note tries to hijack the clerk"] == "blocked"
     assert runtime.state.captures["CAPDEMO000001"]["refunded"] == "10.00"
     assert result["pending_approval_id"]
     assert not any(refund.get("amount") == "9999.00" for refund in runtime.state.refunds.values())

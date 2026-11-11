@@ -87,7 +87,8 @@ class LivePayPalBackend:
         except Exception:
             return None
 
-    def run(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
+    def run(self, method: str, params: dict[str, Any], idempotency_key: str | None = None) -> dict[str, Any]:
+        self._last_idempotency_key = idempotency_key
         if method == "create_refund":
             return self._create_refund(params)
         if method in {"list_policy", "list_pending_approvals"}:
@@ -239,6 +240,19 @@ class LivePayPalBackend:
                     "source": "sandbox",
                 }
 
+
+    def _post_with_idempotency(self, uri: str, payload: dict[str, Any], idempotency_key: str | None) -> dict[str, Any]:
+        client = self._client
+        if isinstance(client, RestPayPalClient):
+            return client.post(uri, payload, request_id=idempotency_key)
+        # Official toolkit client: still send the header when the method allows it.
+        if idempotency_key and hasattr(client, "post"):
+            try:
+                return client.post(uri, payload, headers={"PayPal-Request-Id": idempotency_key})
+            except TypeError:
+                pass
+        return client.post(uri, payload)
+
     def _create_refund(self, params: dict[str, Any]) -> dict[str, Any]:
         capture_id = params.get("capture_id")
         if not capture_id:
@@ -250,9 +264,13 @@ class LivePayPalBackend:
                 "currency_code": params.get("currency") or "USD",
             }
         try:
-            raw = self._client.post(f"/v2/payments/captures/{capture_id}/refund", payload or {})
+            raw = self._post_with_idempotency(
+                f"/v2/payments/captures/{capture_id}/refund",
+                payload or {},
+                getattr(self, "_last_idempotency_key", None),
+            )
         except Exception as exc:
-            return {"ok": False, "error": f"PayPal refund failed: {exc}"}
+            return {"ok": False, "error": "PayPal refund failed."}
         parsed = _as_dict(raw)
         refund_id = parsed.get("id")
         amount = (parsed.get("amount") or {}).get("value") or params.get("amount")
@@ -297,18 +315,21 @@ class RestPayPalClient:
             raise RuntimeError("PayPal did not return an access token.")
         return token
 
-    def _headers(self) -> dict[str, str]:
-        return {
+    def _headers(self, request_id: str | None = None) -> dict[str, str]:
+        headers = {
             "Authorization": f"Bearer {self._token()}",
             "Content-Type": "application/json",
         }
+        if request_id:
+            headers["PayPal-Request-Id"] = request_id
+        return headers
 
-    def post(self, uri: str, payload: dict[str, Any] | None) -> dict[str, Any]:
+    def post(self, uri: str, payload: dict[str, Any] | None, request_id: str | None = None) -> dict[str, Any]:
         import requests
 
         response = requests.post(
             f"{self.base_url}{uri}",
-            headers=self._headers(),
+            headers=self._headers(request_id=request_id),
             json=payload or {},
             timeout=30,
         )

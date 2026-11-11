@@ -2,18 +2,34 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
+import re
+import uuid
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from tillguard.amounts import money
-from tillguard.policy import Decision, DecisionKind, PolicyContext, evaluate
+from tillguard.injection import is_policy_override, scan_arguments, scan_text
+from tillguard.policy import (
+    KNOWN_TOOLS,
+    MONEY_TOOLS,
+    TOOL_SCOPES,
+    Decision,
+    DecisionKind,
+    PolicyContext,
+    evaluate,
+)
 from tillguard.store import AppState
+
+_EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+_ID = re.compile(r"^[A-Za-z0-9_\-]{3,80}$")
+_IDEMPOTENCY = re.compile(r"^[A-Za-z0-9_\-:]{8,120}$")
 
 
 class GuardedPaypal:
-    def __init__(self, backend, state: AppState):
+    def __init__(self, backend, state: AppState, redactor=None):
         self.backend = backend
         self.state = state
+        self.redactor = redactor
 
     def _context_for(self, tool: str, arguments: dict[str, Any]) -> PolicyContext:
         capture = None
@@ -33,44 +49,192 @@ class GuardedPaypal:
             known_refunded_so_far=refunded,
         )
 
-    def invoke(self, tool: str, arguments: dict[str, Any] | None) -> dict[str, Any]:
-        arguments = arguments or {}
+    def _safe_args(self, arguments: dict[str, Any] | None) -> dict[str, Any]:
+        data = dict(arguments or {})
+        if self.redactor is not None:
+            return self.redactor.redact(data)
+        return data
+
+    def _block(self, tool: str, arguments: dict[str, Any], reason: str, rule: str, amount=None, injection=None, idempotency_key=None) -> dict[str, Any]:
+        decision = Decision(
+            kind=DecisionKind.BLOCK,
+            tool=tool,
+            reason=reason,
+            amount=amount,
+            policy_rule=rule,
+        )
+        safe_args = self._safe_args(arguments)
+        entry = self.state.log(
+            tool,
+            safe_args,
+            decision,
+            result={"blocked": True},
+            injection=injection,
+            idempotency_key=idempotency_key,
+        )
+        result = {
+            "status": "blocked",
+            "decision": decision.to_dict(),
+            "audit_id": entry.id,
+            "injection": injection,
+            "idempotency_key": idempotency_key,
+            "message": f"POLICY BLOCKED this tool call. It was not sent to PayPal. Reason: {decision.reason}",
+        }
+        if idempotency_key:
+            self.state.idempotency[idempotency_key] = result
+        return result
+
+    def invoke(
+        self,
+        tool: str,
+        arguments: dict[str, Any] | None,
+        user_text: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        arguments = dict(arguments or {})
+        key = idempotency_key or arguments.pop("idempotency_key", None) or f"tg_{uuid.uuid4().hex}"
+        if not _IDEMPOTENCY.match(str(key)):
+            return self._block(tool, arguments, "The idempotency key is not valid.", "input_validation")
+
+        if key in self.state.idempotency:
+            replay = dict(self.state.idempotency[key])
+            replay["idempotent_replay"] = True
+            return replay
+
+        if tool not in KNOWN_TOOLS:
+            return self._block(
+                tool,
+                arguments,
+                f"Unknown tool {tool} is not on the least-privilege allowlist.",
+                "unknown_tool",
+                idempotency_key=key,
+            )
+
+        scope = TOOL_SCOPES[tool]
+        if scope not in self.state.policy.enabled_scopes:
+            return self._block(
+                tool,
+                arguments,
+                f"Tool {tool} requires the {scope} scope, which is not enabled on this desk.",
+                "least_privilege",
+                idempotency_key=key,
+            )
+
+        invalid = _validate_arguments(tool, arguments)
+        if invalid:
+            return self._block(tool, arguments, invalid, "input_validation", idempotency_key=key)
+
+        payload_scan = scan_arguments(arguments)
+        message_scan = scan_text(user_text) if user_text else {"detected": False, "findings": []}
+        injection = None
+        if payload_scan["detected"] or message_scan.get("detected"):
+            injection = {
+                "detected": True,
+                "payload": payload_scan if payload_scan["detected"] else None,
+                "user_message": message_scan if message_scan.get("detected") else None,
+                "findings": (payload_scan.get("findings") or []) + (message_scan.get("findings") or []),
+            }
+
+        # Payload injection is always blocked so a poisoned note cannot land in PayPal.
+        if payload_scan["detected"]:
+            return self._block(
+                tool,
+                arguments,
+                payload_scan["reason"],
+                "prompt_injection",
+                injection=injection,
+                idempotency_key=key,
+            )
+
+        # A jailbreak in the merchant's message cannot auto-move money, even for a small amount.
+        if tool in MONEY_TOOLS and is_policy_override(message_scan):
+            return self._block(
+                tool,
+                arguments,
+                message_scan["reason"],
+                "prompt_injection",
+                injection=injection,
+                idempotency_key=key,
+            )
+
         decision = evaluate(tool, arguments, self.state.policy, self._context_for(tool, arguments))
+        if injection:
+            decision.details = dict(decision.details or {})
+            decision.details["injection"] = injection
 
         if decision.kind == DecisionKind.BLOCK:
-            entry = self.state.log(tool, arguments, decision, result={"blocked": True})
-            return {
+            entry = self.state.log(
+                tool,
+                self._safe_args(arguments),
+                decision,
+                result={"blocked": True},
+                injection=injection,
+                idempotency_key=key,
+            )
+            result = {
                 "status": "blocked",
                 "decision": decision.to_dict(),
                 "audit_id": entry.id,
+                "injection": injection,
+                "idempotency_key": key,
                 "message": (
                     "POLICY BLOCKED this tool call. It was not sent to PayPal. "
                     f"Reason: {decision.reason}"
                 ),
             }
+            self.state.idempotency[key] = result
+            return result
 
         if decision.kind == DecisionKind.NEED_APPROVAL:
             approval = self.state.enqueue_approval(tool, arguments, decision)
-            entry = self.state.log(tool, arguments, decision, approval_id=approval.id)
-            return {
+            entry = self.state.log(
+                tool,
+                self._safe_args(arguments),
+                decision,
+                approval_id=approval.id,
+                injection=injection,
+                idempotency_key=key,
+            )
+            result = {
                 "status": "needs_approval",
                 "decision": decision.to_dict(),
                 "approval_id": approval.id,
                 "audit_id": entry.id,
+                "injection": injection,
+                "idempotency_key": key,
                 "message": (
                     "POLICY held this tool call for human approval. It has NOT been sent to PayPal. "
                     f"Approval ID: {approval.id}. Reason: {decision.reason}"
                 ),
             }
+            self.state.idempotency[key] = result
+            return result
 
-        result = self.backend.run(tool, arguments)
-        entry = self.state.log(tool, arguments, decision, result=result)
-        return {
+        result_body = self._run_backend(tool, arguments, key)
+        entry = self.state.log(
+            tool,
+            self._safe_args(arguments),
+            decision,
+            result=self._safe_args(result_body) if isinstance(result_body, dict) else result_body,
+            injection=injection,
+            idempotency_key=key,
+        )
+        result = {
             "status": "allowed",
             "decision": decision.to_dict(),
             "audit_id": entry.id,
-            "result": result,
+            "injection": injection,
+            "idempotency_key": key,
+            "result": result_body,
         }
+        self.state.idempotency[key] = result
+        return result
+
+    def _run_backend(self, tool: str, arguments: dict[str, Any], idempotency_key: str) -> dict[str, Any]:
+        try:
+            return self.backend.run(tool, arguments, idempotency_key=idempotency_key)
+        except TypeError:
+            return self.backend.run(tool, arguments)
 
     def execute_approved(self, approval_id: str) -> dict[str, Any]:
         approval = self.state.get_approval(approval_id)
@@ -78,12 +242,52 @@ class GuardedPaypal:
             return {"ok": False, "error": f"Approval {approval_id} was not found."}
         if approval.status != "approved":
             return {"ok": False, "error": f"Approval {approval_id} is {approval.status}, not approved."}
+        key = f"tg_approve_{approval_id}"
         try:
-            result = self.backend.run(approval.tool, approval.arguments)
+            result = self._run_backend(approval.tool, approval.arguments, key)
         except Exception as exc:
             approval.status = "failed"
             approval.execute_result = {"error": str(exc)}
             return {"ok": False, "error": str(exc), "approval": approval.to_dict()}
         approval.status = "executed"
         approval.execute_result = result
-        return {"ok": True, "approval": approval.to_dict(), "result": result}
+        return {"ok": True, "approval": approval.to_dict(), "result": result, "idempotency_key": key}
+
+
+def _validate_arguments(tool: str, arguments: dict[str, Any]) -> str | None:
+    email = arguments.get("recipient_email")
+    if email is not None:
+        if not isinstance(email, str) or not _EMAIL.match(email) or len(email) > 254:
+            return "recipient_email must be a valid email address."
+
+    for key in ("capture_id", "order_id", "invoice_id"):
+        value = arguments.get(key)
+        if value is not None and (not isinstance(value, str) or not _ID.match(value)):
+            return f"{key} is not a valid identifier."
+
+    if "amount" in arguments and arguments["amount"] not in (None, ""):
+        try:
+            amount = money(arguments["amount"])
+        except (InvalidOperation, ValueError, TypeError):
+            return "amount must be a valid number."
+        if amount < 0:
+            return "amount cannot be negative."
+        if amount > money("1000000"):
+            return "amount is above the hard input ceiling of 1,000,000."
+
+    def walk(value: Any) -> str | None:
+        if isinstance(value, str) and len(value) > 2000:
+            return "A text field is too long (max 2,000 characters)."
+        if isinstance(value, dict):
+            for item in value.values():
+                issue = walk(item)
+                if issue:
+                    return issue
+        if isinstance(value, list):
+            for item in value:
+                issue = walk(item)
+                if issue:
+                    return issue
+        return None
+
+    return walk(arguments)

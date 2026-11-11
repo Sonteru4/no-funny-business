@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import secrets
 import threading
 import uuid
 from dataclasses import dataclass, field
@@ -11,6 +12,7 @@ from decimal import Decimal
 from typing import Any
 
 from tillguard.amounts import money, money_str
+from tillguard.integrity import fingerprint_key, seal, verify_chain
 from tillguard.policy import Decision, DecisionKind, PolicyPack
 
 
@@ -38,6 +40,11 @@ class AuditEntry:
     policy_rule: str | None
     result: Any = None
     approval_id: str | None = None
+    injection: dict[str, Any] | None = None
+    idempotency_key: str | None = None
+    prev_hash: str | None = None
+    entry_hash: str | None = None
+    signature: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -51,6 +58,11 @@ class AuditEntry:
             "policy_rule": self.policy_rule,
             "result": self.result,
             "approval_id": self.approval_id,
+            "injection": self.injection,
+            "idempotency_key": self.idempotency_key,
+            "prev_hash": self.prev_hash,
+            "entry_hash": self.entry_hash,
+            "signature": self.signature,
         }
 
 
@@ -94,6 +106,10 @@ class AppState:
     captures: dict[str, dict[str, Any]] = field(default_factory=dict)
     refunds: dict[str, dict[str, Any]] = field(default_factory=dict)
     lock: threading.Lock = field(default_factory=threading.Lock)
+    signing_key: str = field(default_factory=lambda: secrets.token_hex(32))
+    pending_policy: dict[str, Any] | None = None
+    last_redteam: dict[str, Any] | None = None
+    idempotency: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def daily_refunds_executed(self) -> Decimal:
         today = _today()
@@ -103,7 +119,17 @@ class AppState:
                 total += money(refund.get("amount", "0"))
         return money(total)
 
-    def log(self, tool: str, arguments: dict[str, Any], decision: Decision, result: Any = None, approval_id: str | None = None) -> AuditEntry:
+    def log(
+        self,
+        tool: str,
+        arguments: dict[str, Any],
+        decision: Decision,
+        result: Any = None,
+        approval_id: str | None = None,
+        injection: dict[str, Any] | None = None,
+        idempotency_key: str | None = None,
+    ) -> AuditEntry:
+        prev = self.audit[0].entry_hash if self.audit and self.audit[0].entry_hash else None
         entry = AuditEntry(
             id=_new_id("aud"),
             ts=_now(),
@@ -115,9 +141,21 @@ class AppState:
             policy_rule=decision.policy_rule,
             result=result,
             approval_id=approval_id,
+            injection=injection,
+            idempotency_key=idempotency_key,
         )
+        sealed = seal(entry.to_dict(), prev, self.signing_key)
+        entry.prev_hash = sealed["prev_hash"]
+        entry.entry_hash = sealed["entry_hash"]
+        entry.signature = sealed["signature"]
         self.audit.insert(0, entry)
         return entry
+
+    def integrity(self) -> dict[str, Any]:
+        chronological = list(reversed(self.audit))
+        report = verify_chain([item.to_dict() for item in chronological], self.signing_key)
+        report["key_fingerprint"] = fingerprint_key(self.signing_key)
+        return report
 
     def enqueue_approval(self, tool: str, arguments: dict[str, Any], decision: Decision) -> ApprovalRequest:
         req = ApprovalRequest(
@@ -149,6 +187,9 @@ class AppState:
             "orders": list(self.orders.values()),
             "captures": list(self.captures.values()),
             "refunds": list(self.refunds.values()),
+            "integrity": self.integrity(),
+            "pending_policy": self.pending_policy,
+            "redteam": self.last_redteam,
         }
 
 

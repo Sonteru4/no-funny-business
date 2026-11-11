@@ -22,10 +22,12 @@
       <div class="top-meta">
         <span id="mode-badge" class="badge">...</span>
         <span id="model-badge" class="badge quiet">model</span>
+        <span id="integrity-badge" class="badge quiet" title="Signed audit chain">audit ...</span>
         <button type="button" id="walkthrough-btn" class="btn ghost">Load policy walkthrough</button>
         <button type="button" id="reset-btn" class="btn ghost">Reset desk</button>
       </div>
     </header>
+    <div id="banner" class="banner" hidden></div>
 
     <main class="grid">
       <section class="chat-col">
@@ -33,7 +35,7 @@
         <div class="prompts" id="prompts"></div>
         <form id="chat-form" class="composer">
           <label class="sr-only" for="message">Message for TillGuard</label>
-          <textarea id="message" rows="2" placeholder="Ask the clerk to invoice, capture, or refund. Policy is enforced in code, not just in the prompt." required></textarea>
+          <textarea id="message" rows="2" maxlength="4000" placeholder="Ask the clerk to invoice, capture, or refund. Policy is enforced in code, not just in the prompt." required></textarea>
           <button type="submit" class="btn primary" id="send-btn">Send</button>
         </form>
         <p id="status-line" class="status-line"></p>
@@ -41,8 +43,18 @@
 
       <aside class="side">
         <section class="panel">
-          <h2>Policy pack</h2>
+          <div class="panel-head">
+            <h2>Policy pack</h2>
+          </div>
           <dl id="policy-list" class="facts"></dl>
+          <form id="policy-form" class="policy-editor">
+            <label for="policy-text">Edit in plain English. A validated diff must be approved before it takes effect.</label>
+            <textarea id="policy-text" rows="3" maxlength="2000" placeholder="Example: Auto-approve refunds under $50 and set the daily refund cap to $300."></textarea>
+            <div class="actions">
+              <button type="submit" class="btn small" id="policy-draft-btn">Draft rules</button>
+            </div>
+          </form>
+          <div id="policy-diff" class="policy-diff" hidden></div>
         </section>
         <section class="panel">
           <div class="panel-head">
@@ -52,16 +64,38 @@
           <div id="approvals" class="stack"></div>
         </section>
         <section class="panel">
-          <h2>Audit log</h2>
+          <div class="panel-head">
+            <h2>Audit log</h2>
+            <span id="audit-integrity" class="muted small-label"></span>
+          </div>
           <div id="audit" class="stack"></div>
         </section>
         <section class="panel">
           <h2>Ledger</h2>
           <div id="ledger" class="stack"></div>
         </section>
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Red-team scorecard</h2>
+            <button type="button" id="redteam-btn" class="btn small ghost">Run suite</button>
+          </div>
+          <div id="redteam" class="redteam">
+            <p class="empty">Run the isolated suite to see how many attacks the interceptor blocks. It does not touch this ledger or call a language model.</p>
+          </div>
+        </section>
       </aside>
     </main>
   </div>
+
+  <dialog id="explain-modal" class="modal">
+    <form method="dialog" class="modal-card">
+      <div class="panel-head">
+        <h2 id="explain-title">Explain this decision</h2>
+        <button type="submit" class="btn small ghost" value="close">Close</button>
+      </div>
+      <div id="explain-body" class="explain-body"></div>
+    </form>
+  </dialog>
   <script src="/static/app.js"></script>
 </body>
 </html>

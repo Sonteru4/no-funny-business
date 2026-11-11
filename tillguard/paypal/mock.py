@@ -23,11 +23,15 @@ class MockPayPalBackend:
             return None
         return self.state.captures.get(capture_id)
 
-    def run(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
+    def run(self, method: str, params: dict[str, Any], idempotency_key: str | None = None) -> dict[str, Any]:
         handler = getattr(self, f"_handle_{method}", None)
         if handler is None:
             raise ValueError(f"Unknown PayPal tool: {method}")
-        return handler(params or {})
+        result = handler(params or {})
+        if isinstance(result, dict) and idempotency_key:
+            result = dict(result)
+            result["idempotency_key"] = idempotency_key
+        return result
 
     def _handle_create_order(self, params: dict[str, Any]) -> dict[str, Any]:
         amount = money_str(extract_amount(params) or 0)

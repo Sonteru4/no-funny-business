@@ -222,3 +222,64 @@ textarea {
   .chat-col { min-height: 70vh; }
   .top { padding: 14px; }
 }
+
+.banner {
+  margin: 0 28px;
+  padding: 10px 14px;
+  border: 1px solid #6a2d26;
+  background: #3a1612;
+  color: #ffd2cc;
+  border-radius: 10px;
+  font-size: 13px;
+}
+.banner[hidden] { display: none; }
+.badge.ok { background: #123224; color: var(--ok); border-color: #225c40; }
+.badge.danger { background: #3a1612; color: var(--danger); border-color: #6a2d26; }
+.badge.provider { text-transform: none; letter-spacing: 0.02em; }
+.small-label { font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; }
+.policy-editor { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.policy-editor label { color: var(--muted); font-size: 12px; }
+.policy-editor textarea {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #141a13;
+  min-height: 72px;
+}
+.policy-diff { margin-top: 10px; }
+.policy-diff .card { margin-bottom: 8px; }
+.diff-row { display: flex; justify-content: space-between; gap: 8px; font-variant-numeric: tabular-nums; }
+.diff-row .from { color: var(--danger); }
+.diff-row .to { color: var(--ok); }
+.card.injection { border-color: #6a2d26; }
+.card button.linkish {
+  background: none; border: 0; color: var(--info); cursor: pointer;
+  padding: 0; font: inherit; font-size: 12px; margin-top: 6px;
+}
+.hash { font-family: "IBM Plex Sans", ui-monospace, monospace; font-size: 11px; word-break: break-all; }
+.redteam .score {
+  font-family: Fraunces, serif;
+  font-size: 20px;
+  margin: 0 0 8px;
+}
+.redteam .bar {
+  height: 8px; border-radius: 999px; background: #2a3528; overflow: hidden; margin: 0 0 10px;
+}
+.redteam .bar > span { display: block; height: 100%; background: var(--ok); }
+.redteam .case { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.redteam .case:last-child { border-bottom: 0; }
+.modal { border: 0; padding: 0; background: transparent; }
+.modal::backdrop { background: rgba(0,0,0,0.55); }
+.modal-card {
+  width: min(640px, 92vw);
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px 18px 20px;
+  box-shadow: var(--shadow);
+}
+.explain-body { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.explain-body h3 { margin: 0; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.chip.prompt_injection, .chip.injection { color: var(--danger); border-color: #6a2d26; }
+.empty-title { display: block; color: var(--ink); margin-bottom: 2px; }
+.side { max-height: calc(100vh - 110px); overflow: auto; padding-right: 4px; }
