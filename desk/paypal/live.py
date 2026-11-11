@@ -37,6 +37,16 @@ class LivePayPalBackend:
         self.state = state
         self._toolkit_api = None
         self._client = None
+        # Direct REST client for Payouts and Disputes, which the toolkit does not cover.
+        self._rest = RestPayPalClient(
+            client_id=self.settings.paypal_client_id or "",
+            secret=self.settings.paypal_client_secret or "",
+            sandbox=True,
+        )
+        # Merchant-side records (vendor registry, incoming bills, subscriptions demo) stay local.
+        from desk.paypal.mock import MockPayPalBackend
+
+        self._local = MockPayPalBackend(state)
         self._init_clients()
 
     def _init_clients(self) -> None:
@@ -87,10 +97,33 @@ class LivePayPalBackend:
         except Exception:
             return None
 
+    LOCAL_TOOLS = {
+        "list_vendors",
+        "get_vendor",
+        "update_vendor_payee",
+        "list_subscriptions",
+        "get_subscription",
+        "update_subscription",
+    }
+
     def run(self, method: str, params: dict[str, Any], idempotency_key: str | None = None) -> dict[str, Any]:
         self._last_idempotency_key = idempotency_key
         if method == "create_refund":
             return self._create_refund(params)
+        if method == "create_payout":
+            return self._create_payout(params, idempotency_key)
+        if method == "list_disputes":
+            return self._list_disputes()
+        if method == "get_dispute":
+            return self._get_dispute(params.get("dispute_id"))
+        if method in self.LOCAL_TOOLS:
+            result = dict(self._local.run(method, params))
+            result["transport"] = "local-merchant-records"
+            return result
+        if method == "get_invoice":
+            local = self.state.invoices.get(params.get("invoice_id") or "")
+            if local and local.get("direction") == "incoming":
+                return {"ok": True, "transport": "local-merchant-records", "invoice": local}
         if method in {"list_policy", "list_pending_approvals"}:
             # These are local tools, not PayPal APIs.
             if method == "list_policy":
@@ -286,8 +319,103 @@ class LivePayPalBackend:
             self.state.refunds[refund_id] = record
         return {"ok": True, "transport": self.transport, "refund": record, "raw": parsed}
 
+    def _create_payout(self, params: dict[str, Any], idempotency_key: str | None) -> dict[str, Any]:
+        """POST /v1/payments/payouts. Only reached after the policy engine allowed it."""
+        amount = money_str(params.get("amount"))
+        currency = params.get("currency") or "USD"
+        batch_ref = (idempotency_key or "desk_payout")[:120]
+        payload = {
+            "sender_batch_header": {
+                "sender_batch_id": batch_ref,
+                "email_subject": "You have a payout",
+                "email_message": "Payment from the merchant desk.",
+            },
+            "items": [
+                {
+                    "recipient_type": "EMAIL",
+                    "amount": {"value": amount, "currency": currency},
+                    "receiver": params.get("recipient_email"),
+                    "note": (params.get("note") or "Vendor payment")[:4000],
+                    "sender_item_id": (params.get("invoice_id") or batch_ref)[:63],
+                }
+            ],
+        }
+        try:
+            raw = self._rest.post("/v1/payments/payouts", payload, request_id=idempotency_key)
+        except Exception as exc:
+            return {"ok": False, "error": f"PayPal payout failed: {_http_error(exc)}"}
+        header = raw.get("batch_header") or {}
+        batch_id = header.get("payout_batch_id")
+        record = {
+            "id": batch_id,
+            "batch_status": header.get("batch_status", "PENDING"),
+            "recipient_email": params.get("recipient_email"),
+            "amount": amount,
+            "currency": currency,
+            "note": params.get("note"),
+            "created_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "source": "sandbox",
+        }
+        if batch_id:
+            self.state.payouts[batch_id] = record
+        return {"ok": True, "transport": "paypal-rest", "batch_header": header, "payout": record}
+
+    def _dispute_record(self, raw: dict[str, Any]) -> dict[str, Any]:
+        txns = raw.get("disputed_transactions") or []
+        capture_id = txns[0].get("seller_transaction_id") if txns else None
+        amount = raw.get("dispute_amount") or {}
+        return {
+            "id": raw.get("dispute_id"),
+            "status": raw.get("status"),
+            "reason": raw.get("reason"),
+            "capture_id": capture_id,
+            "amount": amount.get("value"),
+            "currency": amount.get("currency_code") or "USD",
+            "source": "sandbox",
+        }
+
+    def refresh_disputes(self) -> None:
+        self._list_disputes()
+
+    def _list_disputes(self) -> dict[str, Any]:
+        try:
+            raw = self._rest.get("/v1/customer/disputes?page_size=50")
+        except Exception as exc:
+            return {"ok": False, "error": f"PayPal disputes lookup failed: {_http_error(exc)}"}
+        records = []
+        for item in raw.get("items") or []:
+            record = self._dispute_record(item)
+            if record["id"]:
+                self.state.disputes[record["id"]] = record
+                records.append(record)
+        return {"ok": True, "transport": "paypal-rest", "disputes": records}
+
+    def _get_dispute(self, dispute_id: str | None) -> dict[str, Any]:
+        if not dispute_id:
+            return {"ok": False, "error": "dispute_id is required."}
+        try:
+            raw = self._rest.get(f"/v1/customer/disputes/{dispute_id}")
+        except Exception as exc:
+            return {"ok": False, "error": f"PayPal dispute lookup failed: {_http_error(exc)}"}
+        record = self._dispute_record(raw)
+        if record["id"]:
+            self.state.disputes[record["id"]] = record
+        return {"ok": True, "transport": "paypal-rest", "dispute": record}
+
     def _rest_fallback(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
         return {"ok": False, "error": f"No live handler for {method}."}
+
+
+def _http_error(exc: Exception) -> str:
+    """Short, secret-free description of an HTTP failure."""
+    response = getattr(exc, "response", None)
+    if response is not None:
+        try:
+            body = response.json()
+            return f"HTTP {response.status_code} {body.get('name', '')} {body.get('message', '')}".strip()
+        except Exception:
+            return f"HTTP {response.status_code}"
+    return type(exc).__name__
 
 
 class RestPayPalClient:
@@ -296,9 +424,13 @@ class RestPayPalClient:
     def __init__(self, client_id: str, secret: str, sandbox: bool = True):
         self.client_id = client_id
         self.secret = secret
-        self.base_url = "https://api-m.sandbox.paypal.com" if sandbox else "https://api-m.paypal.com"
+        # This product only ever talks to the PayPal sandbox.
+        self.base_url = "https://api-m.sandbox.paypal.com"
+        self._cached_token: str | None = None
 
     def _token(self) -> str:
+        if self._cached_token:
+            return self._cached_token
         import requests
 
         response = requests.post(
@@ -313,6 +445,7 @@ class RestPayPalClient:
         token = data.get("access_token")
         if not token:
             raise RuntimeError("PayPal did not return an access token.")
+        self._cached_token = token
         return token
 
     def _headers(self, request_id: str | None = None) -> dict[str, str]:
