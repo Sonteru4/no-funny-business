@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>TillGuard, merchant desk</title>
+  <title>Merchant desk</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -13,20 +13,23 @@
   <div class="shell">
     <header class="top">
       <div class="brand">
-        <span class="mark" aria-hidden="true">T</span>
+        <span class="mark" id="brand-mark" aria-hidden="true">M</span>
         <div>
-          <h1>TillGuard</h1>
-          <p class="tag">AI clerk for PayPal, with hard policy limits</p>
+          <h1 id="brand-name">Merchant desk</h1>
+          <p class="tag" id="brand-tag">AI clerk for PayPal, with policy enforced in code</p>
         </div>
       </div>
       <div class="top-meta">
         <span id="mode-badge" class="badge">...</span>
         <span id="model-badge" class="badge quiet">model</span>
         <span id="integrity-badge" class="badge quiet" title="Signed audit chain">audit ...</span>
-        <button type="button" id="walkthrough-btn" class="btn ghost">Load policy walkthrough</button>
-        <button type="button" id="reset-btn" class="btn ghost">Reset desk</button>
+        <button type="button" id="reset-btn" class="btn ghost small">Reset desk</button>
+        <button type="button" id="kill-btn" class="btn kill" aria-pressed="false">Freeze all money moves</button>
       </div>
     </header>
+    <div id="frozen-banner" class="frozen-banner" hidden>
+      <strong>Desk frozen.</strong> Every payout, refund, order, invoice, and subscription change is stopped in code until you unfreeze. Reads still work.
+    </div>
     <div id="banner" class="banner" hidden></div>
 
     <main class="grid">
@@ -34,8 +37,8 @@
         <div id="transcript" class="transcript" aria-live="polite"></div>
         <div class="prompts" id="prompts"></div>
         <form id="chat-form" class="composer">
-          <label class="sr-only" for="message">Message for TillGuard</label>
-          <textarea id="message" rows="2" maxlength="4000" placeholder="Ask the clerk to invoice, capture, or refund. Policy is enforced in code, not just in the prompt." required></textarea>
+          <label class="sr-only" for="message">Message for the clerk</label>
+          <textarea id="message" rows="2" maxlength="4000" placeholder="Ask the clerk to pay a vendor, change a subscription, or issue a refund." required></textarea>
           <button type="submit" class="btn primary" id="send-btn">Send</button>
         </form>
         <p id="status-line" class="status-line"></p>
@@ -44,35 +47,41 @@
       <aside class="side">
         <section class="panel">
           <div class="panel-head">
-            <h2>Policy pack</h2>
+            <h2>Waiting on you</h2>
+            <span id="approval-count" class="count">0</span>
+          </div>
+          <div id="approvals" class="stack"></div>
+        </section>
+        <section class="panel flagged-panel" id="flagged-panel" hidden>
+          <div class="panel-head">
+            <h2>Hidden instructions found</h2>
+          </div>
+          <div id="flagged" class="stack"></div>
+        </section>
+        <section class="panel">
+          <div class="panel-head">
+            <h2>House rules</h2>
           </div>
           <dl id="policy-list" class="facts"></dl>
           <form id="policy-form" class="policy-editor">
-            <label for="policy-text">Edit in plain English. A validated diff must be approved before it takes effect.</label>
-            <textarea id="policy-text" rows="3" maxlength="2000" placeholder="Example: Auto-approve refunds under $50 and set the daily refund cap to $300."></textarea>
+            <label for="policy-text">Change a rule in plain English. You review the diff and click Apply.</label>
+            <textarea id="policy-text" rows="3" maxlength="2000" placeholder="Cap subscription price increases at $10 per day and require human approval for any subscription payee change."></textarea>
             <div class="actions">
-              <button type="submit" class="btn small" id="policy-draft-btn">Draft rules</button>
+              <button type="submit" class="btn small" id="policy-draft-btn">Draft rule change</button>
             </div>
           </form>
           <div id="policy-diff" class="policy-diff" hidden></div>
         </section>
         <section class="panel">
-          <div class="panel-head">
-            <h2>Approval queue</h2>
-            <span id="approval-count" class="count">0</span>
-          </div>
-          <div id="approvals" class="stack"></div>
+          <h2>Books</h2>
+          <div id="ledger" class="stack tall"></div>
         </section>
         <section class="panel">
           <div class="panel-head">
-            <h2>Audit log</h2>
+            <h2>Receipt trail</h2>
             <span id="audit-integrity" class="muted small-label"></span>
           </div>
           <div id="audit" class="stack"></div>
-        </section>
-        <section class="panel">
-          <h2>Ledger</h2>
-          <div id="ledger" class="stack"></div>
         </section>
         <section class="panel">
           <div class="panel-head">
@@ -80,8 +89,11 @@
             <button type="button" id="redteam-btn" class="btn small ghost">Run suite</button>
           </div>
           <div id="redteam" class="redteam">
-            <p class="empty">Run the isolated suite to see how many attacks the interceptor blocks. It does not touch this ledger or call a language model.</p>
+            <p class="empty">Runs every attack against a separate practice desk. It does not touch these books or call a language model.</p>
           </div>
+        </section>
+        <section class="panel">
+          <button type="button" id="walkthrough-btn" class="btn ghost small">Load scripted walkthrough (no LLM)</button>
         </section>
       </aside>
     </main>
@@ -90,7 +102,7 @@
   <dialog id="explain-modal" class="modal">
     <form method="dialog" class="modal-card">
       <div class="panel-head">
-        <h2 id="explain-title">Explain this decision</h2>
+        <h2 id="explain-title">Why did this happen?</h2>
         <button type="submit" class="btn small ghost" value="close">Close</button>
       </div>
       <div id="explain-body" class="explain-body"></div>
