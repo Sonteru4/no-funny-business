@@ -1,4 +1,6 @@
-# {{PRODUCT_NAME}}
+# No Funny Business
+
+**The unbribable AI clerk for PayPal merchants.**
 
 A friendly AI clerk for a merchant's PayPal desk. It pays vendors, manages subscriptions, and handles refunds and disputes, and every money move goes through house rules enforced in code: verified payees, payee-change holds, split-increase caps, dispute and duplicate checks, a kill switch, a signed receipt trail, and a red-team scorecard.
 

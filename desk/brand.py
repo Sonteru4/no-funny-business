@@ -8,5 +8,5 @@ from __future__ import annotations
 
 import os
 
-PRODUCT_NAME = os.environ.get("DESK_PRODUCT_NAME", "").strip() or "Merchant Desk"
-TAGLINE = "AI clerk for PayPal payouts, subscriptions, vendor payments, and refunds, with policy enforced in code"
+PRODUCT_NAME = os.environ.get("DESK_PRODUCT_NAME", "").strip() or "No Funny Business"
+TAGLINE = "The unbribable AI clerk for PayPal merchants"

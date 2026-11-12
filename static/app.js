@@ -33,7 +33,7 @@ const auditEl = $("audit");
 const ledgerEl = $("ledger");
 const statusLine = $("status-line");
 const banner = $("banner");
-let productName = "Merchant desk";
+let productName = "No Funny Business";
 let frozen = false;
 
 function esc(value) {
@@ -107,7 +107,7 @@ function noteCard(warning, blockedRule) {
 
 function renderBrand(state) {
   productName = state.product_name || productName;
-  document.title = `${productName}, merchant desk`;
+  document.title = `${productName}: the unbribable AI clerk for PayPal merchants`;
   $("brand-name").textContent = productName;
   $("brand-mark").textContent = productName.trim().charAt(0).toUpperCase() || "M";
   if (state.tagline) $("brand-tag").textContent = state.tagline;
