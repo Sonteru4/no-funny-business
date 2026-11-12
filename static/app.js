@@ -471,6 +471,7 @@ $("walkthrough-btn").addEventListener("click", async () => {
     return;
   }
   renderState(data.state);
+  refresh(); // walkthrough state has no provider fields; reload full state so the model badge stays correct
   const lines = (data.steps || []).map((step) => `${friendlyStatus(step.status)}: ${step.title}`).join("\n");
   addMessage("assistant", "Scripted walkthrough loaded. This path uses the rules engine only, not the language model.\n" + lines);
   statusLine.textContent = "";

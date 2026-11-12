@@ -188,3 +188,55 @@ textarea { resize: none; background: transparent; color: var(--ink); border: 0; 
 .info-banner { margin: 12px 28px 0; padding: 10px 14px; border: 1px solid #c4dbea; background: var(--accent-soft); color: var(--accent); border-radius: 10px; font-size: 13px; }
 .info-banner[hidden] { display: none; }
 .prompt-chip:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ---------------------------------------------------------------
+   Visual polish v3 (Visual Director design system, Palette A "Paper and Signal").
+   Paper and ink, one accent (Signal Red) reserved for "stopped" and the kill switch.
+   Geist for UI, Geist Mono for labels, numbers, hashes. No glass, no gradients.
+   Fraunces stays only inside the vendor note so the "untrusted document" reads as a document.
+   Delete this block to revert.
+   --------------------------------------------------------------- */
+:root {
+  --bg: #f4f1ea;
+  --paper: #fffdf8;
+  --panel: #fffdf8;
+  --ink: #121212;
+  --muted: #6d675e;
+  --line: #e3ddd2;
+  --accent: #121212;
+  --accent-soft: #f1ede5;
+  --danger: #d8321b;
+  --danger-soft: #fdebe6;
+  --shadow: 0 1px 0 rgba(18, 18, 18, 0.04), 0 24px 48px -28px rgba(60, 45, 25, 0.18);
+}
+body { font-family: "Geist", "IBM Plex Sans", system-ui, sans-serif; font-size: 15px; letter-spacing: -0.005em; -webkit-font-smoothing: antialiased; }
+.top { background: var(--bg); backdrop-filter: none; padding: 18px 32px; }
+.mark { background: var(--ink); font-family: "Geist", sans-serif; font-weight: 700; font-size: 20px; border-radius: 10px; letter-spacing: -0.04em; }
+h1 { font-family: "Geist", sans-serif; font-weight: 650; font-size: 24px; letter-spacing: -0.03em; }
+.tag { font-size: 13px; letter-spacing: 0; }
+.badge { font-family: "Geist Mono", ui-monospace, monospace; font-weight: 500; font-size: 10.5px; letter-spacing: 0.02em; text-transform: uppercase; padding: 4px 9px; }
+.top-meta { gap: 6px; }
+.tag { white-space: nowrap; }
+.badge.mock, .badge.sandbox { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.btn { font-family: inherit; border-radius: 999px; transition: background-color 160ms cubic-bezier(0.16, 1, 0.3, 1), border-color 160ms, color 160ms; }
+.btn:focus-visible, .prompt-chip:focus-visible, textarea:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.btn.primary { background: var(--ink); border-color: var(--ink); }
+.btn.primary:hover:not(:disabled) { background: #2a2a2a; }
+.chat-col, .panel { border-radius: 20px; }
+.panel h2 { font-family: "Geist", sans-serif; font-size: 17px; font-weight: 600; letter-spacing: -0.02em; }
+.msg.user .bubble { background: var(--ink); }
+.msg.assistant .bubble { background: #f3efe7; }
+.msg .who { font-family: "Geist Mono", ui-monospace, monospace; font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+.chip { font-family: "Geist Mono", ui-monospace, monospace; font-size: 11.5px; }
+.prompt-chip { font-weight: 500; }
+.prompt-chip:hover { border-color: var(--ink); color: var(--ink); background: #f8f5ef; }
+.ledger-h, .explain-body h3, .note-head { font-family: "Geist Mono", ui-monospace, monospace; font-weight: 500; letter-spacing: 0.08em; }
+.facts dd, .diff-row, .count { font-family: "Geist Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.hash { font-family: "Geist Mono", ui-monospace, monospace; }
+.diff-card { border-color: var(--line); background: #f8f5ef; }
+.info-banner { border-color: var(--line); background: #f8f5ef; color: var(--ink); }
+.redteam .score { font-family: "Geist", sans-serif; font-weight: 600; letter-spacing: -0.02em; }
+.redteam .score .big { font-size: 34px; font-weight: 700; letter-spacing: -0.04em; color: var(--ink); }
+.redteam .bar > span { background: var(--ink); }
+.card button.linkish { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.modal::backdrop { background: rgba(18, 18, 18, 0.28); }
