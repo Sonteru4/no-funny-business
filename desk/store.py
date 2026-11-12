@@ -205,7 +205,13 @@ class AppState:
             "frozen": self.frozen,
             "frozen_at": self.frozen_at,
             "flagged_records": list(self.flagged_records),
+            "impact": self._impact(),
         }
+
+    def _impact(self) -> dict[str, Any]:
+        from desk.impact import compute_impact
+
+        return compute_impact(self)
 
 
 def seed_demo_data(state: AppState) -> None:

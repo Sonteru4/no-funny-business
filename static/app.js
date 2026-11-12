@@ -230,6 +230,17 @@ function renderLedger(state) {
   ledgerEl.innerHTML = html || '<p class="empty">The books are empty.</p>';
 }
 
+function renderImpact(state) {
+  const el = $("impact-badge");
+  if (!el) return;
+  const impact = state.impact || {};
+  const total = Number(impact.total || 0);
+  const fmt = total.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: total % 1 ? 2 : 0 });
+  el.textContent = `${fmt} stopped or held`;
+  el.className = total > 0 ? "badge danger" : "badge quiet";
+  el.title = `Stopped: $${impact.stopped || "0.00"}. Held for you: $${impact.held || "0.00"}. Changes stopped or held: ${(impact.changes_stopped || 0) + (impact.changes_held || 0)}. ${impact.basis || ""}`;
+}
+
 function renderState(state) {
   renderBrand(state);
   renderFrozen(state);
@@ -244,6 +255,7 @@ function renderState(state) {
   renderFlagged(state);
   renderPolicy(state);
   renderAudit(state);
+  renderImpact(state);
   renderLedger(state);
   if (state.redteam) renderRedteam(state.redteam);
 }
