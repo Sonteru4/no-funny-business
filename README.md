@@ -4,7 +4,11 @@
 
 A friendly AI clerk for a merchant's PayPal desk. It pays vendors, manages subscriptions, and handles refunds and disputes, and every money move goes through house rules enforced in code: verified payees, payee-change holds, split-increase caps, dispute and duplicate checks, a kill switch, a signed receipt trail, and a red-team scorecard.
 
-Built for the [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/). The clerk runs live on [Google Gemini](https://ai.google.dev/) (`gemini-flash-latest`) when `GEMINI_API_KEY` is set, with OpenAI as a fallback. PayPal runs in **mock mode** by default and against the **PayPal sandbox** when sandbox credentials are set. It never calls production PayPal. See [What is live and what is mock](#what-is-live-and-what-is-mock).
+[Live demo](https://merchant-desk-demo.onrender.com) · [2:55 video](https://youtu.be/vMarccmj97A) · [Devpost](https://devpost.com/software/no-funny-business) · [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/)
+
+![Demo walkthrough](docs/demo.gif)
+
+Built for the PayPal AI Hackathon 2026. The clerk runs live on [Google Gemini](https://ai.google.dev/) (`gemini-flash-latest`) when `GEMINI_API_KEY` is set, with OpenAI as a fallback. PayPal runs in **mock mode** by default and against the **PayPal sandbox** when sandbox credentials are set. It never calls production PayPal. See [What is live and what is mock](#what-is-live-and-what-is-mock).
 
 ## The problem
 
