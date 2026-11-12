@@ -61,6 +61,33 @@ def main() -> int:
     if not settings.has_paypal_credentials:
         print("PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET are not set. Nothing to do.")
         return 2
+    import requests
+
+    try:
+        auth = requests.post(
+            "https://api-m.sandbox.paypal.com/v1/oauth2/token",
+            data={"grant_type": "client_credentials"},
+            auth=(settings.paypal_client_id, settings.paypal_client_secret),
+            headers={"Accept": "application/json"},
+            timeout=30,
+        )
+    except requests.RequestException as exc:
+        print(f"Could not reach the PayPal sandbox: {type(exc).__name__}")
+        return 3
+    if auth.status_code != 200:
+        err = {}
+        try:
+            err = auth.json()
+        except ValueError:
+            pass
+        print(
+            f"PayPal sandbox OAuth failed: HTTP {auth.status_code} {err.get('error', '')}. "
+            "Check that PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET are the Sandbox app values from "
+            "developer.paypal.com (Apps & Credentials, Sandbox), with no quotes or spaces."
+        )
+        return 3
+    print("PayPal sandbox OAuth ok")
+
     rt = Runtime(settings)
     if rt.state.mode != "sandbox":
         print("Desk is not in sandbox mode. Unset DESK_PAYPAL_MODE=mock if it is set.")
