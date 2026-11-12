@@ -147,7 +147,7 @@ def main() -> int:
     g.invoke("get_invoice", {"invoice_id": "BILL-7001"}, user_text="Pay vendor bill BILL-7001.")
     show("poisoned-note payout (should be blocked, no PayPal call)", g.invoke(
         "create_payout",
-        {"recipient_email": "refunds-desk@payme-now.example", "amount": 4800},
+        {"recipient_email": "refunds-desk@payme-now.example", "amount": 47316},
         user_text="Pay vendor bill BILL-7001.",
     ))
     print(f"Audit chain verified: {rt.state.integrity().get('ok')} ({len(rt.state.audit)} entries)")

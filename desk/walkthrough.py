@@ -26,10 +26,10 @@ def run_walkthrough(runtime: Runtime) -> dict:
                   "status": runtime.guarded.invoke("get_invoice", {"invoice_id": "BILL-7001"}, user_text=bill).get("status")})
     fake = runtime.guarded.invoke(
         "create_payout",
-        {"recipient_email": "refunds-desk@payme-now.example", "amount": 4800, "note": "Reconciliation"},
+        {"recipient_email": "refunds-desk@payme-now.example", "amount": 47316, "note": "Reconciliation"},
         user_text=bill,
     )
-    steps.append({"title": "Stop the $4,800 payout the note asked for", "tool": "create_payout", "status": fake["status"]})
+    steps.append({"title": "Stop the $47,316 payout the note asked for", "tool": "create_payout", "status": fake["status"]})
     expect(fake, "blocked")
     expect(act("Pay the real $340 bill to the verified vendor", "create_payout",
                {"recipient_email": "ap@bluebird-print.example", "amount": 340, "invoice_id": "BILL-7001"}), "allowed")
@@ -67,6 +67,8 @@ def run_walkthrough(runtime: Runtime) -> dict:
                {"capture_id": "CAPDEMO000001", "amount": 10}), "allowed")
     expect(act("Stop the same $10 refund issued twice", "create_refund",
                {"capture_id": "CAPDEMO000001", "amount": 10}), "blocked")
+    expect(act("Stop a $480 refund promised in chat but outside the posted 30-day window", "create_refund",
+               {"capture_id": "CAPLATE000001", "amount": 480, "reason": "Customer says a chat promised a bereavement refund"}), "blocked")
     held = act(
         "Hold a $30 refund for a human",
         "create_refund",

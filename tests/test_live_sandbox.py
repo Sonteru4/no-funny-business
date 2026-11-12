@@ -90,7 +90,7 @@ def test_poisoned_note_payout_blocked_before_any_http(http):
     assert read["result"]["untrusted_content_warning"]["detected"]
     out = rt.guarded.invoke(
         "create_payout",
-        {"recipient_email": "refunds-desk@payme-now.example", "amount": 4800},
+        {"recipient_email": "refunds-desk@payme-now.example", "amount": 47316},
         user_text="Pay vendor bill BILL-7001.",
     )
     assert out["status"] == "blocked"

@@ -57,7 +57,7 @@ def test_poisoned_bill_is_flagged_highlighted_and_payout_blocked():
     assert r.state.flagged_records[0]["record_id"] == "BILL-7001"
     out = r.guarded.invoke(
         "create_payout",
-        {"recipient_email": "refunds-desk@payme-now.example", "amount": 4800},
+        {"recipient_email": "refunds-desk@payme-now.example", "amount": 47316},
         user_text="Pay vendor bill BILL-7001.",
     )
     assert out["status"] == "blocked"

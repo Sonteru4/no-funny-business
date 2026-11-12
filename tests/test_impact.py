@@ -22,12 +22,12 @@ def test_walkthrough_impact_matches_guard_decisions():
     run_walkthrough(rt)
     impact = compute_impact(rt.state)
     amounts = sorted(float(i["amount"]) for i in impact["items"])
-    # $4,800 poisoned payout, $1,200 payout to unconfirmed email, $90 disputed refund,
-    # $10 duplicate refund, $9,999 policy-busting refund are stopped. $30 refund is held.
-    assert amounts == [10.0, 30.0, 90.0, 1200.0, 4800.0, 9999.0]
-    assert impact["stopped"] == "16099.00"
+    # $47,316 poisoned payout (amount inspired by the reported Freysa transfer), $1,200 payout to unconfirmed email, $90 disputed refund,
+    # $10 duplicate refund, $480 out-of-window refund promised in chat, $9,999 policy-busting refund are stopped. $30 refund is held.
+    assert amounts == [10.0, 30.0, 90.0, 480.0, 1200.0, 9999.0, 47316.0]
+    assert impact["stopped"] == "59095.00"
     assert impact["held"] == "30.00"
-    assert impact["total"] == "16129.00"
+    assert impact["total"] == "59125.00"
     # Allowed money ($340 bill, first $10 refund) never counts.
     assert all(i["outcome"] in {"stopped", "held"} for i in impact["items"])
     # Subscription second raise blocked; payee redirect and vendor payee change held.
@@ -35,7 +35,7 @@ def test_walkthrough_impact_matches_guard_decisions():
     assert impact["changes_held"] == 2
     # Running total is monotonic and ends at the total.
     totals = [float(i["running_total"]) for i in impact["items"]]
-    assert totals == sorted(totals) and totals[-1] == 16129.0
+    assert totals == sorted(totals) and totals[-1] == 59125.0
 
 
 def test_approved_hold_is_not_counted_and_denied_hold_becomes_stopped():
@@ -46,10 +46,10 @@ def test_approved_hold_is_not_counted_and_denied_hold_becomes_stopped():
     approval.status = "approved"
     impact = compute_impact(rt.state)
     assert impact["held"] == "0.00"
-    assert impact["total"] == "16099.00"
+    assert impact["total"] == "59095.00"
     approval.status = "denied"
     impact = compute_impact(rt.state)
-    assert impact["stopped"] == "16129.00"
+    assert impact["stopped"] == "59125.00"
 
 
 def test_state_endpoint_exposes_impact_in_public_demo(monkeypatch):
@@ -71,7 +71,7 @@ def test_state_endpoint_exposes_impact_in_public_demo(monkeypatch):
         assert client.post("/api/walkthrough").status_code == 200
         data = client.get("/api/state").json()
         assert data["mode"] == "mock"
-        assert data["impact"]["total"] == "16129.00"
+        assert data["impact"]["total"] == "59125.00"
         assert data["impact"]["held"] == "30.00"
     finally:
         runtime_mod._VISITORS.clear()

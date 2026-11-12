@@ -92,6 +92,9 @@ class PolicyPack:
     subscription_payee_change_requires_approval: bool = False
     # Refunds on disputed or duplicate captures are always blocked.
     duplicate_refund_window_hours: int = 24
+    # Posted refund window. A promise made in chat (by a customer, or by any bot)
+    # never widens it. Exceptions are the merchant's call, outside the clerk.
+    refund_window_days: int = 30
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -111,13 +114,16 @@ class PolicyPack:
             "subscription_daily_increase_cap": money_str(self.subscription_daily_increase_cap) if self.subscription_daily_increase_cap is not None else None,
             "subscription_payee_change_requires_approval": self.subscription_payee_change_requires_approval,
             "duplicate_refund_window_hours": self.duplicate_refund_window_hours,
+            "refund_window_days": self.refund_window_days,
             "notes": {
                 "orders": f"Orders at or below {money_str(self.max_order_amount)} {self.currency} may be created automatically.",
                 "invoices": f"Invoices at or below {money_str(self.max_invoice_amount)} {self.currency} may be created automatically.",
                 "refunds": (
                     f"Refunds below {money_str(self.refund_auto_approve_limit)} {self.currency} "
                     f"are auto-approved. Refunds at or above that amount wait for a human. "
-                    f"Total refunds in a day cannot exceed {money_str(self.daily_refund_cap)} {self.currency}."
+                    f"Total refunds in a day cannot exceed {money_str(self.daily_refund_cap)} {self.currency}. "
+                    f"Refunds are only possible within {self.refund_window_days} days of the payment. "
+                    "There are no other refund policies, and a promise made in chat does not create one."
                 ),
             },
         }

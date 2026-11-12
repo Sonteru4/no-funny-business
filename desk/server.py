@@ -151,7 +151,7 @@ def chat(body: ChatRequest, request: Request):
         raise HTTPException(
             status_code=403,
             detail="Chat with the AI clerk is off in the public demo, so no model keys are used here. "
-            "The scripted walkthrough runs all four attacks through the same rules. Run the repo locally with a Gemini key for the live clerk.",
+            "The scripted walkthrough runs all five attacks through the same rules. Run the repo locally with a Gemini key for the live clerk.",
         )
     try:
         agent = runtime.require_agent()

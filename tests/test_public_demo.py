@@ -67,7 +67,7 @@ def test_visitor_desks_expire_and_are_capped(demo, monkeypatch):
 def test_walkthrough_catches_all_four_attacks_in_demo(demo):
     c = TestClient(server.app)
     steps = {s["title"]: s["status"] for s in c.post("/api/walkthrough").json()["steps"]}
-    assert steps["Stop the $4,800 payout the note asked for"] == "blocked"
+    assert steps["Stop the $47,316 payout the note asked for"] == "blocked"
     assert steps["After fix: the second +$8 is caught by the daily cap"] == "blocked"
     assert steps["Stop the $1,200 payout to the unconfirmed new email"] == "blocked"
     assert steps["Stop a refund on a capture with an open dispute"] == "blocked"

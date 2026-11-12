@@ -188,6 +188,20 @@ def refund_anomaly(arguments: dict[str, Any], state: AppState) -> Decision | Non
                 "if the dispute also resolves in their favor. Respond to the dispute instead.",
                 "dispute_open", dispute_id=dispute["id"],
             )
+    capture = state.captures.get(capture_id) or {}
+    paid_at = _parse(capture.get("captured_at"))
+    window_days = state.policy.refund_window_days
+    if paid_at is not None and paid_at < _now() - timedelta(days=window_days):
+        age = (_now() - paid_at).days
+        requested = arguments.get("amount")
+        amount = money(requested) if requested not in (None, "") else (money(capture["amount"]) if capture.get("amount") else None)
+        return _decision(
+            DecisionKind.BLOCK, "create_refund",
+            f"Posted refund policy: refunds within {window_days} days of payment. Capture {capture_id} was paid "
+            f"{age} days ago. A promise quoted from a chat does not change the posted policy, and the clerk cannot "
+            "create a new one. Any exception is the merchant's decision, outside the clerk.",
+            "refund_window", amount, paid_days_ago=age, refund_window_days=window_days,
+        )
     if arguments.get("amount") in (None, ""):
         return None
     amount = money(arguments["amount"])
