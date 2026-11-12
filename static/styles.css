@@ -63,8 +63,8 @@ h1 { font-family: Fraunces, serif; font-size: 26px; margin: 0; font-weight: 600;
 .chat-col, .panel {
   background: var(--panel); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow);
 }
-.chat-col { display: flex; flex-direction: column; min-height: calc(100vh - 120px); overflow: hidden; }
-.transcript { flex: 1; padding: 22px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+.chat-col { display: flex; flex-direction: column; height: calc(100vh - 120px); min-height: 520px; overflow: hidden; }
+.transcript { flex: 1; min-height: 0; padding: 22px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
 .msg { max-width: 90%; }
 .msg.user { align-self: flex-end; }
 .msg .bubble { padding: 11px 15px; border-radius: 16px; white-space: pre-wrap; }
